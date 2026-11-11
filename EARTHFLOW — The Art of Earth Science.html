@@ -1,0 +1,2597 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#03050B">
+<title>EARTHFLOW — The Art of Earth Science</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --space:#03050B; --navy:#091423; --white:#F5F7FA; --blue:#188BFF; --cyan:#68D5FF;
+  --warm:#FF784F; --cold:#39B9F5; --gold:#D5A468;
+  --dim:rgba(245,247,250,.62); --faint:rgba(245,247,250,.38);
+  --spring: cubic-bezier(.2,1.3,.3,1);
+  --ease: cubic-bezier(.22,.8,.2,1);
+  --font: "Inter","Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--space);color:var(--white);font-family:var(--font);overflow:hidden;
+  -webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;touch-action:none;overscroll-behavior:none}
+canvas#gl{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-action:none}
+#ui{position:fixed;inset:0;pointer-events:none;z-index:2}
+#ui .hit{pointer-events:auto}
+button{font-family:var(--font);color:var(--white);border:0;background:none;cursor:pointer;-webkit-appearance:none}
+
+/* ---------- Liquid glass ---------- */
+.glass{
+  background:linear-gradient(140deg,rgba(255,255,255,.115),rgba(255,255,255,.035) 46%,rgba(255,255,255,.06));
+  -webkit-backdrop-filter:blur(26px) saturate(165%);backdrop-filter:blur(26px) saturate(165%);
+  border:1px solid rgba(255,255,255,.13);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -1px 0 rgba(255,255,255,.04),0 24px 60px rgba(0,0,0,.38);
+  border-radius:24px;position:relative;
+}
+.glass::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(120% 60% at 18% 0%,rgba(255,255,255,.14),transparent 55%);mix-blend-mode:screen;opacity:.7}
+.pop{transition:transform .62s var(--spring),opacity .35s var(--ease),filter .45s var(--ease)}
+.pop.off{opacity:0;transform:translateY(18px) scale(.965);filter:blur(10px);pointer-events:none!important}
+
+/* ---------- Top HUD ---------- */
+#hud-top{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;
+  padding:calc(env(safe-area-inset-top) + 26px) 36px 0 44px}
+#chapter{display:flex;flex-direction:column;gap:5px;transition:opacity .5s}
+#chapter .ch-num{font-size:12px;letter-spacing:.28em;color:var(--cyan);font-weight:600}
+#chapter .ch-name{font-size:13px;letter-spacing:.32em;font-weight:500;color:var(--white)}
+#chapter .ch-ko{font-size:13px;color:var(--faint);letter-spacing:.02em}
+#brand{font-size:11px;letter-spacing:.42em;color:var(--faint);font-weight:500;margin-top:4px}
+#top-right{display:flex;gap:10px;align-items:center}
+.icon-btn{width:46px;height:46px;border-radius:23px;display:grid;place-items:center;transition:transform .4s var(--spring),background .3s}
+.icon-btn:active{transform:scale(.9)}
+.icon-btn svg{width:20px;height:20px;stroke:var(--white);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.icon-btn.on{background:rgba(104,213,255,.22)}
+
+/* ---------- Titles ---------- */
+#titles{position:absolute;inset:0}
+.tblock{position:absolute;left:44px;top:18vh;max-width:min(36vw,560px);transition:opacity .8s var(--ease),filter .8s var(--ease),transform .9s var(--ease)}
+.tblock.center{left:50%;top:auto;bottom:15vh;transform:translateX(-50%);text-align:center;max-width:82vw;width:max-content}
+.tblock .tn{font-size:12px;letter-spacing:.3em;color:var(--faint);font-weight:500;margin-bottom:16px}
+.tblock h1{font-size:clamp(34px,3.7vw,62px);line-height:1.08;font-weight:600;letter-spacing:-.025em;margin:0 0 18px;text-shadow:0 2px 40px rgba(0,0,0,.55)}
+.tblock p{text-shadow:0 1px 18px rgba(0,0,0,.7)}
+.tblock.center h1{font-size:clamp(40px,4.6vw,78px)}
+.tblock p{font-size:clamp(16px,1.35vw,20px);line-height:1.62;color:var(--dim);margin:0;font-weight:400;letter-spacing:-.005em;white-space:pre-line}
+.tblock .line{display:block;opacity:0;transform:translateY(26px);filter:blur(14px);transition:opacity .9s var(--ease),transform 1.05s var(--spring),filter .9s var(--ease)}
+.tblock.in .line{opacity:1;transform:none;filter:none}
+.tblock.out{opacity:0;filter:blur(18px);transform:translateY(-34px)}
+.tblock.center.out{transform:translate(-50%,-34px)}
+.tblock .memo{margin-top:22px;padding:14px 18px;border-radius:16px;font-size:15px;line-height:1.55;color:var(--white);
+  background:rgba(24,139,255,.12);border:1px solid rgba(104,213,255,.25)}
+.tblock .memo b{color:var(--cyan);font-weight:600;font-size:12px;letter-spacing:.18em;display:block;margin-bottom:4px}
+.kw{color:var(--cyan);font-weight:500}
+.kw.w{color:var(--warm)}
+.kw.g{color:var(--gold)}
+
+/* ---------- Panels ---------- */
+#panels{position:absolute;inset:0}
+.panel{position:absolute;padding:20px 22px;pointer-events:auto;min-width:240px}
+.panel h3{margin:0 0 12px;font-size:12px;letter-spacing:.24em;color:var(--faint);font-weight:600}
+.panel .row{display:flex;justify-content:space-between;gap:18px;font-size:15px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.panel .row:last-child{border:0}
+.panel .row span:first-child{color:var(--dim)}
+.panel .note{font-size:12.5px;color:var(--faint);line-height:1.5;margin-top:10px}
+.slider{width:100%;margin:6px 0 4px;position:relative;height:44px;display:flex;align-items:center;touch-action:none}
+.slider .track{position:absolute;left:0;right:0;height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+.slider .fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:3px}
+.slider .knob{position:absolute;width:30px;height:30px;border-radius:15px;margin-left:-15px;background:#fff;
+  box-shadow:0 4px 16px rgba(0,0,0,.4),0 0 0 6px rgba(104,213,255,.18);transition:transform .35s var(--spring)}
+.slider.drag .knob{transform:scale(1.18)}
+.slabel{display:flex;justify-content:space-between;font-size:14px;color:var(--dim)}
+.slabel b{color:var(--white);font-weight:600;font-variant-numeric:tabular-nums}
+.seg{display:flex;padding:4px;border-radius:16px;background:rgba(0,0,0,.25);position:relative;gap:2px}
+.seg button{flex:1;padding:11px 16px;font-size:14px;font-weight:600;letter-spacing:.06em;border-radius:12px;position:relative;z-index:1;color:var(--dim);transition:color .3s}
+.seg button.on{color:var(--space)}
+.seg .thumb{position:absolute;top:4px;bottom:4px;border-radius:12px;background:var(--white);transition:left .55s var(--spring),width .55s var(--spring)}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:14px;font-size:14px;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.1);transition:background .3s,border-color .3s,transform .4s var(--spring);color:var(--white)}
+.chip:active{transform:scale(.95)}
+.chip.on{background:rgba(104,213,255,.18);border-color:rgba(104,213,255,.55)}
+.chip.on.warm{background:rgba(255,120,79,.18);border-color:rgba(255,120,79,.6)}
+.chip .dot{width:8px;height:8px;border-radius:4px;background:currentColor;opacity:.7}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;font-size:15px}
+.sw{width:50px;height:30px;border-radius:15px;background:rgba(255,255,255,.14);position:relative;transition:background .3s;flex:none}
+.sw::after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:12px;background:#fff;transition:transform .45s var(--spring)}
+.toggle.on .sw{background:var(--blue)}
+.toggle.on.warm .sw{background:var(--warm)}
+.toggle.on .sw::after{transform:translateX(20px)}
+.chain{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.chain .st{display:flex;align-items:center;gap:10px;font-size:14.5px;color:var(--faint);padding:6px 0;transition:color .5s}
+.chain .st i{width:22px;height:22px;border-radius:11px;border:1px solid rgba(255,255,255,.2);display:grid;place-items:center;font-style:normal;font-size:11px;transition:all .5s var(--spring)}
+.chain .st.on{color:var(--white)}
+.chain .st.on i{background:var(--warm);border-color:var(--warm);color:#fff;transform:scale(1.1)}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:6px}
+.bar>div{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--gold),var(--warm));transition:width .5s var(--ease)}
+.cmp{display:grid;grid-template-columns:1.05fr 1fr 1fr;font-size:13.5px;gap:0}
+.cmp div{padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.06);transition:color .5s,background .5s}
+.cmp .hd{font-size:11px;letter-spacing:.2em;color:var(--faint);font-weight:600}
+.cmp .k{color:var(--dim)}
+.cmp .act{color:var(--white);background:rgba(255,255,255,.05)}
+.cmp .act.wm{color:#ffb39a}
+.cmp .na{color:rgba(245,247,250,.28)}
+
+/* ---------- 3D labels ---------- */
+#labels{position:absolute;inset:0}
+.lab{position:absolute;left:0;top:0;transform:translate(-9999px,0);white-space:nowrap;font-size:13.5px;font-weight:500;
+  transition:opacity .45s var(--ease);will-change:transform;display:flex;align-items:center;gap:7px}
+.lab .pin{width:7px;height:7px;border-radius:4px;background:var(--white);box-shadow:0 0 12px currentColor;flex:none}
+.lab .tx{padding:5px 10px;border-radius:10px;background:rgba(3,5,11,.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.1)}
+.lab .tx small{display:block;font-size:11px;color:var(--faint);font-weight:400}
+.lab.warm{color:var(--warm)} .lab.warm .tx{border-color:rgba(255,120,79,.4)}
+.lab.cold{color:var(--cold)} .lab.cold .tx{border-color:rgba(57,185,245,.45)}
+.lab.gold{color:var(--gold)} .lab.gold .tx{border-color:rgba(213,164,104,.45)}
+.lab.big .tx{font-size:16px;font-weight:600;padding:7px 13px}
+.lab.plain .tx{background:none;border:0;-webkit-backdrop-filter:none;backdrop-filter:none;padding:0;color:var(--dim);font-size:12px;letter-spacing:.08em}
+.lab.plain .pin{display:none}
+.lab.tap{pointer-events:auto}
+.lab.sel .tx{background:rgba(24,139,255,.35);border-color:var(--cyan)}
+
+/* ---------- Info card ---------- */
+#info{position:absolute;right:120px;bottom:118px;width:min(380px,34vw);padding:22px 24px 20px;pointer-events:auto}
+#info .tag{display:inline-block;font-size:11px;letter-spacing:.2em;font-weight:600;padding:5px 10px;border-radius:8px;background:rgba(255,255,255,.1);margin-right:6px}
+#info .tag.warm{background:rgba(255,120,79,.22);color:#ffb39a}
+#info .tag.cold{background:rgba(57,185,245,.22);color:#9fdcff}
+#info h2{margin:12px 0 8px;font-size:26px;letter-spacing:-.02em;font-weight:600}
+#info p{margin:0;font-size:15px;line-height:1.6;color:var(--dim)}
+#info .x{position:absolute;right:12px;top:12px}
+
+/* ---------- Nav zones ---------- */
+.nav{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;width:10vw;transition:opacity .4s}
+#nav-left{left:0} #nav-right{right:0;width:14vw}
+#nav-left .chev{left:8px} #nav-right .chev{right:8px}
+.chev{position:absolute;top:calc(50% - 42px);width:30px;height:84px;border-radius:15px;display:grid;place-items:center;font-size:24px;font-weight:300;color:var(--dim);
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);transition:transform .5s var(--spring),background .3s}
+#nav-right .chev{flex-direction:column}
+.nav-next{position:absolute;right:46px;top:calc(50% - 8px);font-size:11px;letter-spacing:.12em;color:var(--faint);text-align:right;white-space:nowrap;line-height:1.4}
+.nav.flash .chev{transform:scale(1.22);background:rgba(104,213,255,.25)}
+.nav.hidden{opacity:0}
+
+/* ---------- Dock & progress ---------- */
+#dock{position:absolute;left:36px;bottom:calc(env(safe-area-inset-bottom) + 26px);display:flex;gap:4px;padding:6px;border-radius:30px;pointer-events:auto}
+#dock .icon-btn{width:52px;height:52px;border-radius:26px}
+#dock .icon-btn span{position:absolute;bottom:-22px;font-size:10.5px;letter-spacing:.06em;color:var(--faint);white-space:nowrap}
+#dock .icon-btn{position:relative}
+#review-btn.hide{display:none}
+#progress{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 34px);display:flex;gap:14px;align-items:center;
+  padding:12px 18px;border-radius:22px;pointer-events:auto}
+#progress .grp{display:flex;gap:6px;align-items:center}
+#progress .d{width:8px;height:8px;border-radius:4px;background:rgba(255,255,255,.22);transition:width .6s var(--spring),background .4s;position:relative}
+#progress .d::after{content:"";position:absolute;inset:-14px -4px}
+#progress .d.done{background:rgba(255,255,255,.5)}
+#progress .d.cur{width:30px;background:var(--cyan)}
+#progress .ct{font-size:12px;color:var(--faint);letter-spacing:.12em;font-variant-numeric:tabular-nums;min-width:48px;text-align:right}
+
+/* ---------- Modal sheets ---------- */
+.modal{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);width:min(860px,76vw);max-height:72vh;overflow:auto;padding:30px 34px;pointer-events:auto}
+.modal.off{transform:translate(-50%,30px) scale(.97)}
+.modal .x{position:absolute;right:16px;top:16px}
+.modal h2{margin:4px 0 20px;font-size:30px;letter-spacing:-.02em;font-weight:600}
+.modal .eyebrow{font-size:12px;letter-spacing:.26em;color:var(--cyan);font-weight:600}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cbox{padding:16px 18px;border-radius:18px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.07)}
+.cbox b{display:block;font-size:11.5px;letter-spacing:.22em;color:var(--faint);margin-bottom:8px;font-weight:600}
+.cbox div{font-size:15.5px;line-height:1.62;color:var(--white)}
+.cbox.memo{grid-column:1/-1;background:rgba(24,139,255,.12);border-color:rgba(104,213,255,.3)}
+.cbox.memo b{color:var(--cyan)}
+.cbox ul{margin:0;padding-left:18px} .cbox li{margin:3px 0}
+.q h4{font-size:21px;font-weight:500;margin:6px 0 18px;line-height:1.45;letter-spacing:-.01em}
+.q .opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.q .opt{text-align:left;padding:16px 18px;border-radius:16px;font-size:15.5px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);
+  transition:background .35s,border-color .35s,transform .45s var(--spring)}
+.q .opt:active{transform:scale(.97)}
+.q .opt.right{background:rgba(24,139,255,.22);border-color:var(--cyan)}
+.q .opt.wrong{background:rgba(255,120,79,.14);border-color:rgba(255,120,79,.5)}
+.q .exp{margin-top:18px;font-size:15.5px;line-height:1.65;color:var(--dim);padding:16px 18px;border-radius:16px;background:rgba(255,255,255,.04)}
+.q .exp b{color:var(--white)}
+.q .foot{display:flex;justify-content:space-between;align-items:center;margin-top:18px;color:var(--faint);font-size:13px}
+.pill{padding:12px 20px;border-radius:16px;background:rgba(255,255,255,.1);font-size:14.5px;font-weight:600;pointer-events:auto}
+.pill.primary{background:var(--white);color:var(--space)}
+
+#memo-big{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);text-align:center;opacity:0;transition:opacity .5s,filter .6s,transform .8s var(--spring);filter:blur(12px)}
+#memo-big.on{opacity:1;filter:none;transform:translate(-50%,-50%) scale(1)}
+#memo-big .n{font-size:clamp(20px,1.8vw,28px);font-weight:600;letter-spacing:.02em}
+#memo-big .v{font-size:clamp(70px,8vw,140px);font-weight:700;letter-spacing:-.04em;line-height:1;margin-top:6px;
+  background:linear-gradient(180deg,#fff,var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+
+#toast{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 28px);transform:translate(-50%,-14px);padding:12px 20px;border-radius:16px;font-size:14px;opacity:0;transition:opacity .4s,transform .6s var(--spring)}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+#resume{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:30px 34px;width:min(460px,80vw);pointer-events:auto;text-align:center}
+#resume.off{transform:translate(-50%,-46%) scale(.96)}
+#resume h3{font-size:24px;margin:8px 0 10px;font-weight:600;letter-spacing:-.02em}
+#resume p{color:var(--dim);margin:0 0 22px;font-size:15px;line-height:1.55}
+#resume .btns{display:flex;gap:10px;justify-content:center}
+.ripple{position:absolute;width:80px;height:80px;margin:-40px 0 0 -40px;border-radius:50%;border:1.5px solid rgba(104,213,255,.75);
+  animation:rip .7s var(--ease) forwards;pointer-events:none}
+@keyframes rip{from{transform:scale(.2);opacity:1}to{transform:scale(1.4);opacity:0}}
+#concept-note{position:absolute;right:36px;bottom:calc(env(safe-area-inset-bottom) + 38px);font-size:11.5px;color:var(--faint);letter-spacing:.04em;max-width:24vw;text-align:right;line-height:1.45;transition:opacity .5s}
+#observe-hint{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 28px);transform:translateX(-50%);padding:11px 18px;border-radius:16px;font-size:13.5px;color:var(--dim)}
+#fatal{position:fixed;inset:0;display:none;place-items:center;text-align:center;padding:40px;z-index:9;color:var(--dim);font-size:16px;line-height:1.7}
+.ui-dim #titles,.ui-dim #panels,.ui-dim #chapter{opacity:.12;transition:opacity .6s}
+#titles,#panels{transition:opacity .6s}
+.tblock.top{top:calc(env(safe-area-inset-top) + 96px);max-width:min(40vw,600px)}
+.tblock.top h1{font-size:clamp(28px,2.7vw,46px);margin-bottom:10px}
+.tblock.top .tn{margin-bottom:10px}
+.tblock.def{bottom:auto;top:13vh;max-width:min(80vw,1180px);padding:26px 40px 30px;border-radius:32px;background:radial-gradient(70% 80% at 50% 45%,rgba(3,5,11,.72),rgba(3,5,11,.35) 70%,transparent)}
+.tblock.def .defh{font-size:clamp(24px,2.45vw,42px);line-height:1.45;font-weight:500;color:rgba(245,247,250,.78);letter-spacing:-.02em}
+.tblock.def .dk{font-weight:700;color:#fff}
+.term{color:rgba(245,247,250,.78);background:linear-gradient(var(--warm),var(--warm)) no-repeat 0 96%/0% 3px;transition:color .7s,background-size 1s var(--ease),text-shadow .7s;padding-bottom:2px}
+.term.on{color:#fff;background-size:100% 3px;text-shadow:0 0 28px rgba(255,120,79,.55)}
+.terms{display:flex;gap:10px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+.tchip{opacity:.28;transition:opacity .6s,transform .7s var(--spring),background .5s,border-color .5s;transform:translateY(8px) scale(.96)}
+.tchip i{font-style:normal;width:22px;height:22px;border-radius:11px;display:inline-grid;place-items:center;background:rgba(255,255,255,.12);font-size:12px}
+.tchip.on{opacity:1;transform:none;background:rgba(255,120,79,.16);border-color:rgba(255,120,79,.55)}
+.tchip.on i{background:var(--warm)}
+.lab.l{flex-direction:row-reverse}
+.tblock.final{bottom:11vh;padding:26px 60px 30px;border-radius:40px;background:radial-gradient(60% 75% at 50% 55%,rgba(3,5,11,.66),rgba(3,5,11,.25) 70%,transparent)}
+.tblock.final h1{font-size:clamp(46px,5.4vw,92px);letter-spacing:-.035em}
+.tblock.final p{font-size:clamp(17px,1.6vw,24px);color:var(--white);letter-spacing:.04em}
+.flow{display:flex;flex-wrap:wrap;gap:6px 4px;align-items:center}
+.flow .chip{padding:8px 11px;font-size:13px}
+.flow .ar{color:var(--faint);font-size:13px}
+@media (max-width:900px){ .tblock{max-width:70vw;top:14vh} #info{right:20px;width:70vw} .modal{width:92vw;padding:22px} .q .opts,.cgrid{grid-template-columns:1fr} #concept-note{display:none} }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="ui">
+  <div id="labels"></div>
+  <div id="titles"></div>
+  <div id="panels"></div>
+  <div id="memo-big"><div class="n"></div><div class="v"></div></div>
+  <div id="hud-top">
+    <div id="chapter"><span class="ch-num"></span><span class="ch-name"></span><span class="ch-ko"></span></div>
+    <div id="top-right">
+      <div id="brand">EARTHFLOW</div>
+      <button class="icon-btn glass hit" id="btn-full" aria-label="전체 화면"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
+  </div>
+  <div id="nav-left" class="nav"><div class="chev">‹</div></div>
+  <div id="nav-right" class="nav"><div class="chev">›</div><div class="nav-next"></div></div>
+  <div id="info" class="glass pop off"></div>
+  <div id="dock" class="glass">
+    <button class="icon-btn hit" id="concept-btn" aria-label="핵심 개념"><svg viewBox="0 0 24 24"><path d="M5 4.5h9.5a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h9.5M9 8.5h5"/></svg><span>핵심 개념</span></button>
+    <button class="icon-btn hit" id="observe-btn" aria-label="자유 관찰"><svg viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg><span>자유 관찰</span></button>
+    <button class="icon-btn hit" id="memo-btn" aria-label="시각 암기"><svg viewBox="0 0 24 24"><path d="M12 3l2.4 5 5.6.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9 5.6-.8z"/></svg><span>시각 암기</span></button>
+    <button class="icon-btn hit" id="review-btn" aria-label="복습"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/><path d="M12 8v4l2.5 2"/></svg><span>복습</span></button>
+  </div>
+  <div id="progress" class="glass"></div>
+  <div id="concept-note"></div>
+  <div id="observe-hint" class="glass pop off">자유 관찰 · 드래그 회전 · 두 손가락 확대 · 요소를 터치해 확인</div>
+  <div id="concept" class="glass modal pop off"></div>
+  <div id="review" class="glass modal pop off"></div>
+  <div id="resume" class="glass pop off"></div>
+  <div id="toast" class="glass"></div>
+  <div id="ripples"></div>
+</div>
+<div id="fatal"></div>
+<script>
+'use strict';
+/* =====================================================================
+   EARTHFLOW — core: math, springs, GL helpers
+   ===================================================================== */
+const $ = (s, r = document) => r.querySelector(s);
+const TAU = Math.PI * 2, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const wrapPi = a => a - TAU * Math.floor((a + Math.PI) / TAU);
+const wrap180 = d => d - 360 * Math.floor((d + 180) / 360);
+let _seed = 1234567;
+const rnd = () => { _seed = (_seed * 16807) % 2147483647; return (_seed - 1) / 2147483646; };
+const rr = (a, b) => a + (b - a) * rnd();
+
+/* ---- critically damped spring (analytic; retargetable without losing velocity) ---- */
+class Spring {
+  constructor(v = 0, w = 3) { this.v = v; this.t = v; this.vel = 0; this.w = w; }
+  step(dt) {
+    const w = this.w, x = this.v - this.t, v = this.vel, e = Math.exp(-w * dt);
+    this.v = this.t + (x + (v + w * x) * dt) * e;
+    this.vel = (v - (v + w * x) * w * dt) * e;
+    return this.v;
+  }
+  set(t) { this.t = t; return this; }
+  snap(v) { this.v = this.t = v; this.vel = 0; return this; }
+}
+
+/* ---- vectors / matrices (column-major Float32Array) ---- */
+const V3 = {
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  mul: (a, s) => [a[0] * s, a[1] * s, a[2] * s],
+  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+  len: a => Math.hypot(a[0], a[1], a[2]),
+  norm: a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+};
+const M4 = {
+  ident() { const m = new Float32Array(16); m[0] = m[5] = m[10] = m[15] = 1; return m; },
+  persp(fovy, asp, n, f, sx = 0) {
+    const t = 1 / Math.tan(fovy / 2), nf = 1 / (n - f), m = new Float32Array(16);
+    m[0] = t / asp; m[5] = t; m[8] = -sx; m[10] = (f + n) * nf; m[11] = -1; m[14] = 2 * f * n * nf; return m;
+  },
+  lookAt(e, c, up) {
+    const z = V3.norm(V3.sub(e, c)), x = V3.norm(V3.cross(up, z)), y = V3.cross(z, x), m = new Float32Array(16);
+    m[0] = x[0]; m[4] = x[1]; m[8] = x[2];
+    m[1] = y[0]; m[5] = y[1]; m[9] = y[2];
+    m[2] = z[0]; m[6] = z[1]; m[10] = z[2];
+    m[12] = -V3.dot(x, e); m[13] = -V3.dot(y, e); m[14] = -V3.dot(z, e); m[15] = 1; return m;
+  },
+  mul(a, b) {
+    const o = new Float32Array(16);
+    for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+      o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
+    }
+    return o;
+  },
+  // translate * uniform scale * rotY
+  trsY(tx, ty, tz, s, ang) {
+    const c = Math.cos(ang) * s, si = Math.sin(ang) * s, m = new Float32Array(16);
+    m[0] = c; m[2] = -si; m[5] = s; m[8] = si; m[10] = c; m[12] = tx; m[13] = ty; m[14] = tz; m[15] = 1; return m;
+  },
+  xf(m, p) { return [m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]]; },
+};
+/* object-space point on unit sphere from lat/lon in degrees (lon 0 faces +z, east → +x) */
+function sph(lat, lon, r = 1) {
+  const a = lat * D2R, b = lon * D2R, c = Math.cos(a);
+  return [c * Math.sin(b) * r, Math.sin(a) * r, c * Math.cos(b) * r];
+}
+
+/* =====================================================================
+   GL helpers
+   ===================================================================== */
+const canvas = $('#gl');
+const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: true, stencil: false, powerPreference: 'high-performance', premultipliedAlpha: false });
+function fatal(msg) { const f = $('#fatal'); f.style.display = 'grid'; f.innerHTML = msg; }
+if (!gl) fatal('이 기기의 브라우저에서 WebGL 2를 사용할 수 없습니다.<br>최신 Chrome 또는 Samsung Internet에서 열어 주세요.');
+const HALF_FLOAT_RT = !!(gl && gl.getExtension('EXT_color_buffer_float'));
+
+const GLSL_HEAD = '#version 300 es\nprecision highp float;\nprecision highp int;\n';
+function compile(type, src, name) {
+  const s = gl.createShader(type); gl.shaderSource(s, GLSL_HEAD + src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { const log = gl.getShaderInfoLog(s); console.error(name, log); throw new Error(name + ': ' + log); }
+  return s;
+}
+class Prog {
+  constructor(vs, fs, name) {
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, vs, name + '.vs'));
+    gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs, name + '.fs'));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(name + ' link: ' + gl.getProgramInfoLog(p));
+    this.p = p; this.loc = {}; this.name = name;
+  }
+  use() { gl.useProgram(this.p); return this; }
+  L(n) { let l = this.loc[n]; if (l === undefined) l = this.loc[n] = gl.getUniformLocation(this.p, n); return l; }
+  f(n, ...v) {
+    const l = this.L(n); if (l === null) return this;
+    if (v.length === 1) { const x = v[0]; if (typeof x === 'number') gl.uniform1f(l, x); else if (x.length === 16) gl.uniformMatrix4fv(l, false, x); else if (x.length === 3) gl.uniform3fv(l, x); else if (x.length === 4) gl.uniform4fv(l, x); else if (x.length === 2) gl.uniform2fv(l, x); }
+    else if (v.length === 2) gl.uniform2f(l, v[0], v[1]);
+    else if (v.length === 3) gl.uniform3f(l, v[0], v[1], v[2]);
+    else gl.uniform4f(l, v[0], v[1], v[2], v[3]);
+    return this;
+  }
+  i(n, v) { const l = this.L(n); if (l !== null) gl.uniform1i(l, v); return this; }
+  tex(n, unit, t) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); return this.i(n, unit); }
+}
+function buffer(data, target = gl.ARRAY_BUFFER, usage = gl.STATIC_DRAW) {
+  const b = gl.createBuffer(); gl.bindBuffer(target, b); gl.bufferData(target, data, usage); return b;
+}
+/* attribs: [{buf, loc, size, stride, offset, div}] */
+function vao(attribs, ibuf) {
+  const v = gl.createVertexArray(); gl.bindVertexArray(v);
+  for (const a of attribs) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, a.buf); gl.enableVertexAttribArray(a.loc);
+    gl.vertexAttribPointer(a.loc, a.size, gl.FLOAT, false, a.stride || 0, a.offset || 0);
+    if (a.div) gl.vertexAttribDivisor(a.loc, a.div);
+  }
+  if (ibuf) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibuf);
+  gl.bindVertexArray(null); return v;
+}
+function texFromData(w, h, data, { mip = true, wrapS = gl.REPEAT } = {}) {
+  const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mip ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+  if (mip) gl.generateMipmap(gl.TEXTURE_2D);
+  return t;
+}
+function updateTex(t, w, h, data) {
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data);
+  gl.generateMipmap(gl.TEXTURE_2D);
+}
+class Target {
+  constructor(w, h, { depth = false, hdr = false } = {}) { this.depth = depth; this.hdr = hdr && HALF_FLOAT_RT; this.resize(w, h); }
+  resize(w, h) {
+    w = Math.max(1, w | 0); h = Math.max(1, h | 0);
+    if (this.w === w && this.h === h) return;
+    this.w = w; this.h = h;
+    if (this.tex) gl.deleteTexture(this.tex); if (this.rb) gl.deleteRenderbuffer(this.rb); if (this.fb) gl.deleteFramebuffer(this.fb);
+    this.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    if (this.hdr) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+    else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex, 0);
+    if (this.depth) {
+      this.rb = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, this.rb);
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.rb);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  bind() { gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb); gl.viewport(0, 0, this.w, this.h); }
+}
+/* ---- meshes ---- */
+function sphereMesh(seg = 160, rings = 96) {
+  const pos = [], idx = [];
+  for (let r = 0; r <= rings; r++) {
+    const lat = 90 - 180 * r / rings;
+    for (let s = 0; s <= seg; s++) pos.push(...sph(lat, -180 + 360 * s / seg));
+  }
+  for (let r = 0; r < rings; r++) for (let s = 0; s < seg; s++) {
+    const a = r * (seg + 1) + s, b = a + seg + 1;
+    idx.push(a, b, a + 1, b, b + 1, a + 1);
+  }
+  const vb = buffer(new Float32Array(pos)), ib = buffer(new Uint32Array(idx), gl.ELEMENT_ARRAY_BUFFER);
+  return { vao: vao([{ buf: vb, loc: 0, size: 3 }], ib), count: idx.length };
+}
+/* =====================================================================
+   Geography: coastlines (live data + offline fallback), deserts, ice,
+   ocean currents. All coordinates are [lon, lat] in degrees.
+   ===================================================================== */
+const GEO = {};
+GEO.ANTARCTICA = [[-180,-78],[-160,-78.5],[-150,-77],[-140,-75],[-130,-74],[-120,-73.5],[-110,-74],[-100,-73],[-90,-72.8],[-80,-73],[-74,-71],[-68,-68],[-65,-66],[-61,-64],[-57,-63.3],[-58.5,-65],[-61,-67.5],[-62,-70],[-61,-73],[-60,-75.5],[-55,-77.5],[-45,-78],[-35,-77],[-27,-75.5],[-20,-73.8],[-12,-71.5],[-5,-70.5],[0,-70],[10,-70],[20,-69.8],[30,-69.5],[40,-68.8],[50,-67],[60,-67.5],[70,-68.5],[75,-69.5],[80,-67.5],[90,-66.5],[100,-66],[110,-66.2],[120,-66.6],[130,-66.2],[140,-66.6],[150,-68.5],[160,-70.5],[167,-72.5],[170,-75],[165,-78],[180,-78],[180,-90],[-180,-90]];
+GEO.GREENLAND = [[-73,78.5],[-66,80.5],[-58,82],[-45,83],[-32,83.5],[-22,82.5],[-17,80.5],[-19,77],[-21,73.5],[-24,70.5],[-27,68.5],[-33,67.8],[-38,65.6],[-42,62.5],[-44,60],[-47.5,60.8],[-50,63],[-52,65.5],[-53,68],[-54.5,70.5],[-56,73],[-60,75.8],[-66,76.5],[-71,77.5]];
+/* Offline fallback — simplified hand-traced continents (used only if live coastline data cannot load) */
+GEO.FALLBACK = [
+ [[-168,66],[-162,70],[-156,71.3],[-141,69.6],[-128,70],[-115,68.5],[-100,68],[-94,68],[-85,69.5],[-82,66],[-88,64],[-94,59],[-92,57],[-85,55],[-82,52.5],[-79,54],[-77,60],[-72,62],[-65,60],[-61,56],[-56,52],[-60,47],[-66,45],[-70,42],[-74,40.5],[-76,37],[-75.5,35],[-81,31.5],[-80,27],[-80.4,25.2],[-82.5,28],[-84,30],[-89,30.2],[-94,29.6],[-97.4,27.5],[-97.5,22],[-95.5,18.7],[-91,19],[-90.4,21],[-87,21.5],[-88,16],[-84,15],[-83.5,11],[-79.5,9],[-77.5,8],[-80,7.5],[-83,8.5],[-86,11],[-88,13.3],[-92,14.5],[-96,15.7],[-101,17.5],[-105.5,20.5],[-105.6,23],[-109,25.5],[-112.5,29.5],[-114.7,31.5],[-112,27],[-109.5,23],[-112,26],[-115,29.5],[-117,32.5],[-118.5,34],[-120.6,34.6],[-122.5,37.5],[-124,40.5],[-124,46],[-124.7,48.4],[-127,50.5],[-130,54],[-133,57],[-137,59],[-141,60],[-147,61],[-152,59],[-154,57.5],[-158,56.5],[-162,55],[-164,54.6],[-158,58],[-162,60],[-165,62.5],[-164,64.5]],
+ [[-77.5,8],[-75,10.8],[-71.5,12.4],[-68,10.6],[-63,10.7],[-60,8.5],[-57,6],[-52,4.5],[-50,1.8],[-48,-1],[-44,-2.5],[-40,-2.8],[-35.2,-5.5],[-35,-9],[-37.5,-12.5],[-39,-17],[-40,-20.5],[-42,-23],[-46,-24],[-48.5,-27],[-50,-30],[-53,-33.7],[-57,-36],[-57.5,-38],[-62,-39],[-65,-41],[-64,-43],[-67.5,-46],[-66,-48],[-69,-51],[-68.5,-52.5],[-70,-54],[-74,-52.5],[-75.3,-48],[-73.5,-43.5],[-73.5,-37],[-71.5,-30],[-70.3,-23],[-70.3,-18.5],[-75,-15.3],[-78,-10],[-81,-5.5],[-80,-2],[-80.5,0],[-79.5,1.6],[-78.5,4],[-77.3,7]],
+ [[-17,21],[-16,24],[-13,27.7],[-9.8,30],[-9,32.5],[-6.8,34],[-5.9,35.8],[-2,35.1],[3,36.8],[10,37.3],[11,35],[10,33.8],[15.5,32.3],[19.8,30.6],[21.5,32.8],[25,31.8],[29,30.9],[32.3,31.3],[33.5,27.5],[35.5,23.7],[37.3,19],[39,15.8],[41.6,13.4],[43.3,11.8],[44,10.5],[51,11.8],[51.2,10.4],[48.8,5],[46,2],[42,-0.5],[40,-3.5],[39.5,-6.5],[40.4,-10.5],[40.6,-15],[36.8,-18.8],[35.5,-22],[35.5,-24],[32.8,-26],[32.5,-28.8],[30,-31.3],[27.5,-33.5],[25,-34],[22,-34.2],[20,-34.8],[18.3,-34],[18,-31.5],[16.5,-28.6],[15,-26.5],[14.5,-22.5],[13,-19],[11.8,-17],[12.2,-14],[13.6,-11.5],[13.2,-9],[12.3,-6],[11.8,-4],[9.6,-1],[9.4,1],[9.8,3.2],[8.7,4.4],[6,4.3],[4.5,6.3],[2,6.3],[-1,5],[-4,5.2],[-7.5,4.4],[-9.5,5.4],[-12.5,7.5],[-13.3,9.2],[-15,11],[-16.7,12.5],[-17.3,14.7],[-16.5,16.5],[-16,19]],
+ [[49.3,-12],[50.4,-15.5],[49.4,-18.5],[47.2,-25],[44.5,-25.2],[43.5,-21.5],[44.3,-16.5],[47.5,-14.7]],
+ [[-9,43],[-9.3,39],[-8.9,37],[-6,36.2],[-2,36.7],[0.5,38.6],[0,40],[3.2,42],[3,43.3],[6.5,43.1],[9,44.4],[10.5,43],[12.4,41.8],[14.5,40.6],[15.8,39.5],[15.7,38],[17,39],[18.5,40.2],[17,40.5],[16,41.5],[13.6,43.5],[12.3,44.6],[12.5,45.5],[13.7,45.6],[15,44.5],[16.5,43.3],[19.4,41.9],[19.4,40.3],[21,38.5],[22.5,36.5],[24,38],[22.9,40.5],[26,40.8],[26.4,40.1],[27,38.5],[28,36.8],[30.5,36.3],[32.6,36.1],[36,36.6],[35.8,34.5],[34.9,32.4],[34.2,31.3],[34.9,29.5],[36.5,28],[39.2,22],[42.8,16.4],[43.4,12.7],[45,12.8],[48.7,14],[52.2,15.6],[55.4,17.8],[57.8,19],[59.8,22.5],[57,24],[56.3,26.2],[54,24.2],[51.6,24.1],[50,26.5],[48.5,28.5],[48,30],[50.1,30.2],[51.5,27.9],[54.6,26.5],[57.3,25.8],[61.6,25.2],[66.6,25.4],[68.4,23.5],[70.2,21],[72.8,21.1],[72.9,19],[73.4,16],[74.7,13],[76.3,9.6],[77.5,8],[78.2,8.9],[79.9,10.3],[80.3,13],[80.2,15.6],[82.2,16.6],[84.8,19.2],[86.9,21.4],[89,21.8],[91.8,22.4],[92.6,21.3],[94.3,18.3],[94.5,16],[97.6,16.5],[97.8,14],[98.6,10],[98.3,8],[100.3,5.4],[101.3,2.8],[103.5,1.3],[104.2,1.4],[103.4,4.4],[102.6,6],[101,6.9],[100.3,8.3],[99.2,9.2],[99.9,12.7],[100.9,13.4],[102.6,12.2],[104.3,10.5],[105.1,8.6],[106.8,10.4],[109.2,11.6],[109.3,13.4],[108.4,15.4],[106.6,17.5],[105.6,18.9],[107.4,21.2],[109.9,21.4],[111.9,21.6],[113.8,22.5],[116.5,22.9],[119.5,25.7],[121.6,28.3],[121.9,30.9],[120.8,32.5],[119.2,34.9],[120.6,36.9],[122.5,37.4],[119.1,37.2],[118,38.2],[117.5,39.2],[119.5,39.9],[121.5,40.9],[122.3,40.4],[121.3,39],[122.8,39.6],[124.7,39.6],[125.4,37.7],[126.5,36.8],[126.3,34.5],[127.6,34.6],[129.4,35.3],[129.5,36.8],[128.5,38.5],[127.5,39.8],[129.7,40.9],[129.8,42.4],[131,42.6],[133,42.9],[135.5,43.9],[138.2,46.6],[140.5,50],[140.4,53.2],[137.2,54],[135.3,54.7],[137.7,56.4],[142.2,59],[146.7,59.4],[151.3,59.2],[155,59.4],[156.8,61.4],[160.2,61.5],[163.3,62.5],[162,60],[156.7,57.5],[156.4,51.7],[158.4,52.8],[160,54.4],[162.1,56.1],[163.3,58],[166,60],[170.3,60],[174.6,61.8],[177.4,62.5],[179.2,62.3],[180,65],[180,68.8],[175,69.8],[170,70.1],[161,69.5],[152,70.8],[144,72.6],[140,71.5],[133,71.4],[128,72.5],[124,73.5],[113,73.7],[112,75.5],[106,77.4],[98,76.4],[88,75.3],[81,73.6],[78,72.4],[72.8,72.2],[69,73],[66.9,71],[68.5,68.1],[64.5,69.5],[60,68.5],[55,68.3],[53.4,68.6],[46,67.7],[44,68.5],[40,67.6],[36,69],[33,69.4],[28,71],[23,70.8],[18,69.8],[14,68],[12.5,65.9],[10,63.5],[5,62],[5,59],[6,58],[8,58.1],[10.5,59.3],[11.8,58.2],[12.5,56.5],[14.3,55.5],[16.4,56.6],[18.9,60],[17.3,61.7],[21.4,64.4],[25.4,65.1],[21.5,62],[21.4,60.7],[23,59.8],[28,60.4],[28.3,59.5],[24,59.4],[24,58.4],[21.6,57.4],[21,56.8],[21,55.3],[19,54.4],[14,54],[11,54],[10.9,56.4],[8.6,57.1],[8.1,56.6],[8.6,55],[8.6,53.5],[7,53.3],[4.7,52.9],[3.4,51.5],[1.6,50.9],[0,49.5],[-1.3,49.6],[-1.9,48.7],[-4.6,48.4],[-2.5,47.3],[-1.2,46],[-1.5,43.5],[-4,43.4],[-8,43.7]],
+ [[-180,65],[-172.5,64.4],[-170,66],[-175,67.7],[-180,68.8]],
+ [[113.5,-22],[114.2,-26.3],[115,-30],[115,-33.6],[117.8,-35.1],[123.5,-33.9],[126,-32.3],[131,-31.5],[134.3,-32.7],[135.6,-34.8],[137.5,-34.9],[138.5,-34.8],[140,-37.5],[143.5,-38.8],[146.3,-39.1],[149.9,-37.5],[150.8,-34.5],[153,-31],[153.6,-28.2],[153.1,-25.2],[150.8,-22.6],[149,-20.5],[146.3,-18.9],[145.4,-15],[143.5,-14],[142.5,-10.7],[141.6,-12.9],[141.5,-16.8],[140,-17.7],[136.5,-15.6],[135.5,-15],[136.8,-12.2],[132.5,-11.6],[130.2,-12.9],[129.4,-14.9],[127,-13.8],[125.3,-14.6],[122.3,-17],[121,-19.5],[117.5,-20.7]],
+ [[144.6,-40.7],[148.3,-40.9],[148,-43.2],[146,-43.6],[144.7,-41.8]],
+ [[-5.7,50],[1.4,51.2],[1.7,52.7],[0,53.5],[-1.6,55.6],[-2,57.6],[-3.9,58.6],[-5,58.6],[-6.2,57.5],[-5.6,55.4],[-4.8,54.8],[-3.1,53.4],[-4.6,53.3],[-4,51.6]],
+ [[-6,52.2],[-6.2,54.5],[-8.2,55.3],[-10,54],[-10.3,51.9],[-8.5,51.6]],
+ [[-22,64],[-24,65.5],[-22,66.4],[-16,66.5],[-13.6,65],[-18,63.4]],
+ [[130.9,34],[132.4,35.4],[135.5,35.7],[136.8,37.3],[139.6,38.3],[140,40.5],[141.3,41.4],[141.9,39.6],[140.9,36.9],[139.8,35],[138.8,34.6],[136.8,34.3],[135.1,33.8],[133,34.2]],
+ [[129.6,33.3],[131,33.9],[131.9,32.8],[131.3,31.4],[130.2,31.3],[129.9,32.7]],
+ [[139.9,41.5],[141.2,43.2],[141.6,45.4],[144.5,44],[145.5,43.3],[143.3,42],[141.2,41.8]],
+ [[142,46],[143.5,46.8],[142.8,49],[143.2,52],[143,54.2],[142.2,54.3],[141.8,52],[142,48]],
+ [[120.1,23],[121,25.2],[122,25],[121,22]],
+ [[120.6,18.5],[122.2,18.5],[122,16],[124.2,13.5],[125.5,11],[126.5,7.5],[125.4,5.6],[122,7],[122.6,9.5],[120,14.5],[119.8,16.5]],
+ [[109,1.5],[111,2.8],[113,3.2],[115.5,5],[117,7],[119,5],[118.3,1],[116.5,-2],[116,-3.8],[113,-3.2],[110.2,-2.9],[109.5,-1]],
+ [[95.3,5.6],[97.5,5.2],[100.4,2.3],[103.8,-1],[106,-3.3],[105.8,-5.8],[104.5,-5.9],[102.3,-4],[100.5,-1],[98.8,1.7],[95.5,4]],
+ [[105.2,-6.8],[106.4,-6],[108.6,-6.7],[111,-6.4],[112.6,-6.9],[114.5,-7.8],[114.4,-8.7],[111,-8.2],[106.5,-7.4]],
+ [[119.5,-5.5],[120.4,-1],[119.9,0.5],[121,1.3],[124.8,1.5],[123,0.5],[121.3,-1],[123.2,-1],[121,-2.8],[121,-4.9],[122.6,-5.6]],
+ [[131,-1.2],[133,-0.7],[135,-3.3],[138,-1.6],[141,-2.6],[145.8,-5],[147.5,-6.2],[150.3,-10.5],[147,-10.1],[144,-7.7],[142.8,-9.4],[141,-9.1],[138.7,-8.4],[137.8,-5.3],[133,-4.2],[132,-2.8]],
+ [[172.7,-34.4],[174.6,-36.7],[176,-37.6],[178.5,-37.7],[177,-39.3],[175,-41.6],[174.6,-41.2],[173.7,-39.1],[174.5,-36.9]],
+ [[172.7,-40.5],[174.2,-41.7],[173,-43.6],[171.2,-44.4],[169,-46.6],[166.5,-46],[168,-44],[171,-42]],
+ [[79.8,6],[80,9.7],[81.8,7.5],[81.3,6.2]],
+ [[-85,21.9],[-82,23.1],[-77,21.8],[-74.2,20.2],[-77.7,19.9],[-80,21.8],[-84.9,21.4]],
+ [[-74.4,18.5],[-72.5,19.9],[-68.4,18.6],[-71,18],[-74.2,18.2]],
+ [[-80,72],[-73,71],[-66,68],[-62,66.7],[-65,63],[-71,62.5],[-76,64.6],[-73,67.8],[-81,69.5]],
+ [[-125,72],[-120,76],[-110,78.5],[-90,82],[-70,83],[-62,82],[-75,79],[-80,76],[-90,74],[-100,71],[-110,70],[-118,70.5]],
+ [[12,78],[18,80],[25,79.5],[20,77]],
+];
+GEO.DESERTS = [ // [weight, ring]
+ [1.0, [[-17,21],[-13,27],[-8,30],[0,31],[10,32],[20,31],[25,31.5],[32,30],[34,27],[36,22],[37,18],[33,15],[25,15.5],[15,16],[5,16.5],[-5,16.5],[-15,16.5]]],
+ [1.0, [[36,30],[40,32],[47,30],[50,26],[56,24],[58,21],[55,17],[48,15],[43,15],[40,20],[37,25]]],
+ [0.8, [[69,24],[73,29],[76,27],[73,24]]],
+ [0.7, [[52,35],[60,35],[62,30],[57,28],[52,31]]],
+ [0.75,[[55,45],[62,46],[70,43],[78,41],[88,43],[100,43],[110,44],[115,42],[110,39],[100,38],[90,37],[80,37],[70,38],[60,39],[54,41]]],
+ [0.95,[[116,-22],[122,-19],[130,-19],[137,-21],[140,-26],[138,-30],[132,-31],[124,-31],[117,-28]]],
+ [0.8, [[12,-17],[14,-22],[15,-28],[18,-30],[24,-28],[25,-21],[20,-18]]],
+ [0.8, [[-71,-18],[-70,-27],[-71.5,-27],[-70.5,-18]]],
+ [0.45,[[-70,-40],[-66,-40],[-66,-50],[-71,-50]]],
+ [0.7, [[-119,35],[-114,38],[-108,36],[-104,31],[-106,27],[-110,26],[-115,30]]],
+];
+/* ---- ocean currents (major ones from the curriculum + reference currents to close the gyres) ---- */
+GEO.CURRENTS = [
+ { id:'neq', name:'북적도 해류', warm:true, set:'pac', speed:1.0, pts:[[-108,14],[-125,13],[-145,12.5],[-165,12.5],[175,13],[155,13.5],[138,14],[127,15]],
+   info:'무역풍의 영향으로 적도 북쪽에서 동쪽 → 서쪽으로 흐르는 난류. 아시아 대륙에 막혀 북쪽으로 방향을 바꾸어 쿠로시오 해류로 이어진다.', wind:'무역풍' },
+ { id:'kur', name:'쿠로시오 해류', warm:true, set:'pac', speed:1.5, pts:[[124,17],[122.5,22],[124,26],[128,29],[132,31.5],[136,33.3],[140.5,35],[145,36.5],[151,37.5]],
+   info:'북태평양 서쪽 가장자리를 따라 북쪽으로 흐르는 강한 난류. 저위도의 열을 중위도로 운반하며, 우리나라 주변 난류의 근원이 된다.' },
+ { id:'npc', name:'북태평양 해류', warm:true, set:'pac', speed:0.9, pts:[[153,39.5],[165,41.5],[178,42.5],[-170,43],[-155,43],[-142,42.5],[-132,41.5]],
+   info:'편서풍의 영향으로 북태평양 중위도에서 서쪽 → 동쪽으로 흐르는 해류. 쿠로시오 해류에서 이어지는 비교적 따뜻한 해수를 동쪽으로 운반한다.', wind:'편서풍' },
+ { id:'cal', name:'캘리포니아 해류', warm:false, set:'pac', speed:0.9, pts:[[-129,44],[-126,39],[-122,33],[-117,27],[-112,21],[-108,16.5]],
+   info:'북아메리카 서해안을 따라 남쪽으로 흐르는 한류. 고위도의 차가운 해수를 저위도로 운반하여 연안을 서늘하게 한다.' },
+ { id:'gul', name:'멕시코 만류', warm:true, set:'atl', speed:1.6, pts:[[-80.5,25],[-79.8,29],[-77.5,33],[-74.5,36],[-70,38.6],[-63,40.2],[-55,41.5],[-48,43]],
+   info:'북아메리카 동해안을 따라 북동쪽으로 흐르는 강한 난류. 저위도의 막대한 열을 북대서양으로 운반한다.' },
+ { id:'nac', name:'북대서양 해류', warm:true, set:'atl', speed:1.0, pts:[[-44,45],[-36,48],[-27,51],[-18,54.5],[-10,58],[-2,62],[5,66]],
+   info:'편서풍의 영향으로 북동쪽으로 흐르는 난류. 서유럽이 같은 위도의 다른 지역보다 겨울에 온화한 원인 중 하나이다.', wind:'편서풍' },
+ { id:'can', name:'카나리아 해류', warm:false, set:'atl', speed:0.9, pts:[[-14,41],[-14,35],[-15.5,29],[-18,24],[-20.5,19],[-23,14.5]],
+   info:'아프리카 북서 해안을 따라 남쪽으로 흐르는 한류. 북대서양의 순환을 이루며 북적도 해류로 이어진다.' },
+ { id:'naeq', name:'북적도 해류', warm:true, set:'atl', speed:1.0, pts:[[-24,14],[-35,14],[-46,14.5],[-56,15.5],[-64,16.5]],
+   info:'대서양에서도 무역풍의 영향으로 적도 북쪽을 따라 동쪽 → 서쪽으로 흐르는 난류가 나타난다.', wind:'무역풍' },
+ { id:'bra', name:'브라질 해류', warm:true, set:'sth', speed:1.0, pts:[[-35.5,-11],[-38.5,-17],[-40.5,-22.5],[-45,-26.5],[-49.5,-31],[-53,-36],[-55,-40]],
+   info:'남아메리카 동해안을 따라 남쪽으로 흐르는 난류. 남대서양 순환의 서쪽 가장자리를 이룬다.' },
+ { id:'per', name:'페루 해류', warm:false, set:'sth', speed:0.9, pts:[[-76,-44],[-75.5,-37],[-74,-30],[-74.5,-23],[-77.5,-15],[-81,-8],[-84,-3],[-89,-1]],
+   info:'남아메리카 서해안을 따라 북쪽으로 흐르는 한류. 연안의 용승과 함께 차가운 표층 해수를 만들며, 영양염이 풍부해 좋은 어장이 형성된다.' },
+ { id:'wwd', name:'서풍 피류', warm:false, set:'sth', speed:1.1, loop:true, pts:null,
+   info:'남극 대륙 주위를 편서풍의 영향으로 서쪽 → 동쪽으로 도는 해류(남극 순환 해류). 대륙에 막히지 않고 지구를 한 바퀴 돈다.', wind:'편서풍' },
+ { id:'speq', name:'남적도 해류', warm:true, set:'sth', speed:1.0, ref:true, pts:[[-88,-2],[-105,-4],[-125,-6],[-145,-7.5],[-165,-9],[175,-11],[160,-13]],
+   info:'참고 해류 · 남반구 무역풍의 영향으로 적도 남쪽에서 동쪽 → 서쪽으로 흐른다.' },
+ { id:'saeq', name:'남적도 해류', warm:true, set:'sth', speed:1.0, ref:true, pts:[[8,-7],[-2,-6],[-14,-5.5],[-25,-6],[-33,-8.5]],
+   info:'참고 해류 · 남대서양에서 동쪽 → 서쪽으로 흐르며 브라질 해류로 이어진다.' },
+ { id:'ben', name:'벵겔라 해류', warm:false, set:'sth', speed:0.9, ref:true, pts:[[18,-36],[15,-30],[12.5,-24],[10.5,-17],[9,-11]],
+   info:'참고 해류 · 아프리카 남서 해안을 따라 북쪽으로 흐르는 한류.' },
+ { id:'eac', name:'동오스트레일리아 해류', warm:true, set:'sth', speed:1.1, ref:true, pts:[[155,-16],[155,-24],[154,-29],[152.5,-34],[151,-38]],
+   info:'참고 해류 · 오스트레일리아 동해안을 따라 남쪽으로 흐르는 난류.' },
+];
+(function () { const w = GEO.CURRENTS.find(c => c.id === 'wwd'); w.pts = []; for (let lon = -180; lon < 180; lon += 12) w.pts.push([lon, -52 + 4 * Math.sin((lon - 40) * D2R)]); })();
+
+/* unwrap lon, resample by arc length */
+function prepCurrent(c) {
+  const p = c.pts.map(q => q.slice());
+  for (let i = 1; i < p.length; i++) { while (p[i][0] - p[i - 1][0] > 180) p[i][0] -= 360; while (p[i][0] - p[i - 1][0] < -180) p[i][0] += 360; }
+  if (c.loop) p.push([p[0][0] + 360, p[0][1]]);
+  const seg = [0]; let tot = 0;
+  for (let i = 1; i < p.length; i++) { const dl = (p[i][0] - p[i - 1][0]) * Math.cos((p[i][1] + p[i - 1][1]) / 2 * D2R), dp = p[i][1] - p[i - 1][1]; tot += Math.hypot(dl, dp); seg.push(tot); }
+  const N = 200, lon = new Float32Array(N), lat = new Float32Array(N);
+  let j = 0;
+  for (let k = 0; k < N; k++) {
+    const s = tot * k / (N - 1); while (j < seg.length - 2 && seg[j + 1] < s) j++;
+    const t = (s - seg[j]) / Math.max(1e-6, seg[j + 1] - seg[j]);
+    lon[k] = lerp(p[j][0], p[j + 1][0], t); lat[k] = lerp(p[j][1], p[j + 1][1], t);
+  }
+  // smooth (Chaikin-like box filter) for organic curves
+  for (let it = 0; it < 3; it++) for (let k = 1; k < N - 1; k++) { lon[k] = (lon[k - 1] + 2 * lon[k] + lon[k + 1]) / 4; lat[k] = (lat[k - 1] + 2 * lat[k] + lat[k + 1]) / 4; }
+  c.lon = lon; c.lat = lat; c.N = N; c.len = tot;
+  const m = (N / 2) | 0; c.mid = [lat[m], lon[m]];
+}
+GEO.CURRENTS.forEach(prepCurrent);
+function curSample(c, t, off = 0) {
+  if (c.loop) t = t - Math.floor(t); else t = clamp(t, 0, 1);
+  const f = t * (c.N - 1), i = Math.min(c.N - 2, f | 0), u = f - i;
+  const lo = lerp(c.lon[i], c.lon[i + 1], u), la = lerp(c.lat[i], c.lat[i + 1], u);
+  if (!off) return [la, lo];
+  const dlo = (c.lon[i + 1] - c.lon[i]) * Math.cos(la * D2R), dla = c.lat[i + 1] - c.lat[i], l = Math.hypot(dlo, dla) || 1;
+  return [la + (dlo / l) * off, lo - (dla / l) * off / Math.max(0.2, Math.cos(la * D2R))];
+}
+
+/* =====================================================================
+   Texture builders (equirectangular)
+   ===================================================================== */
+function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function pathRing(ctx, ring, W, H, dx = 0) {
+  for (let i = 0; i < ring.length; i++) {
+    const x = (ring[i][0] + 180 + dx) / 360 * W, y = (90 - ring[i][1]) / 180 * H;
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+}
+function fillRings(ctx, rings, W, H) {
+  for (const dx of [0]) { ctx.beginPath(); for (const r of rings) pathRing(ctx, r, W, H, dx); ctx.fill('evenodd'); }
+}
+function blurCanvas(src, factor) { // cheap, portable blur: downsample then upsample with smoothing
+  const w = Math.max(8, (src.width / factor) | 0), h = Math.max(4, (src.height / factor) | 0);
+  const s = mkCanvas(w, h), sc = s.getContext('2d'); sc.imageSmoothingEnabled = true; sc.imageSmoothingQuality = 'high'; sc.drawImage(src, 0, 0, w, h);
+  const o = mkCanvas(src.width, src.height), oc = o.getContext('2d'); oc.imageSmoothingEnabled = true; oc.imageSmoothingQuality = 'high'; oc.drawImage(s, 0, 0, src.width, src.height);
+  return o;
+}
+function buildLandTexture(polys, W = 2048, H = 1024) {
+  const land = mkCanvas(W, H), lc = land.getContext('2d');
+  lc.fillStyle = '#000'; lc.fillRect(0, 0, W, H); lc.fillStyle = '#fff';
+  for (const rings of polys) fillRings(lc, rings, W, H);
+  fillRings(lc, [GEO.ANTARCTICA], W, H); fillRings(lc, [GEO.GREENLAND], W, H);
+  const shelf = blurCanvas(land, 24);
+  const des = mkCanvas(W, H), dc = des.getContext('2d'); dc.fillStyle = '#000'; dc.fillRect(0, 0, W, H);
+  for (const [w, r] of GEO.DESERTS) { dc.fillStyle = `rgba(255,255,255,${w})`; fillRings(dc, [r], W, H); }
+  const desB = blurCanvas(des, 22);
+  const ice = mkCanvas(W, H), ic = ice.getContext('2d'); ic.fillStyle = '#000'; ic.fillRect(0, 0, W, H); ic.fillStyle = '#fff';
+  fillRings(ic, [GEO.ANTARCTICA], W, H); fillRings(ic, [GEO.GREENLAND], W, H);
+  const iceB = blurCanvas(ice, 6);
+  const L = lc.getImageData(0, 0, W, H).data, S = shelf.getContext('2d').getImageData(0, 0, W, H).data,
+    Dd = desB.getContext('2d').getImageData(0, 0, W, H).data, I = iceB.getContext('2d').getImageData(0, 0, W, H).data;
+  const out = new Uint8Array(W * H * 4);
+  for (let i = 0; i < W * H * 4; i += 4) { out[i] = L[i]; out[i + 1] = (Dd[i] * L[i]) / 255; out[i + 2] = I[i]; out[i + 3] = S[i]; }
+  return out;
+}
+function buildCurrentTexture(W = 1024, H = 512) {
+  const warm = mkCanvas(W, H), cold = mkCanvas(W, H);
+  for (const [cv, isWarm] of [[warm, true], [cold, false]]) {
+    const ctx = cv.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = W / 90; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const c of GEO.CURRENTS) {
+      if (c.warm !== isWarm || c.id === 'wwd') continue;
+      for (const dx of [-360, 0, 360]) {
+        ctx.beginPath();
+        for (let k = 0; k < c.N; k += 4) { const x = (c.lon[k] + 180 + dx) / 360 * W, y = (90 - c.lat[k]) / 180 * H; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.stroke();
+      }
+    }
+  }
+  const wb = blurCanvas(warm, 10), cb = blurCanvas(cold, 10);
+  const A = wb.getContext('2d').getImageData(0, 0, W, H).data, B = cb.getContext('2d').getImageData(0, 0, W, H).data;
+  const out = new Uint8Array(W * H * 4);
+  for (let i = 0; i < W * H * 4; i += 4) { out[i] = A[i]; out[i + 1] = B[i]; out[i + 2] = 0; out[i + 3] = 255; }
+  return out;
+}
+/* ---- live coastline loader (Natural Earth–based world map shipped with Apache ECharts 4 on jsDelivr) ---- */
+function decodeEcharts(json) {
+  const scale = json.UTF8Scale || 1024, polys = [];
+  const ring = (str, off) => {
+    const r = []; let px = off[0], py = off[1];
+    for (let i = 0; i < str.length; i += 2) {
+      let x = str.charCodeAt(i) - 64, y = str.charCodeAt(i + 1) - 64;
+      x = (x >> 1) ^ (-(x & 1)); y = (y >> 1) ^ (-(y & 1));
+      x += px; y += py; px = x; py = y; r.push([x / scale, y / scale]);
+    }
+    return r;
+  };
+  for (const f of json.features || []) {
+    const g = f.geometry; if (!g) continue;
+    if (!json.UTF8Encoding) { if (g.type === 'Polygon') polys.push(g.coordinates); else if (g.type === 'MultiPolygon') g.coordinates.forEach(p => polys.push(p)); continue; }
+    if (g.type === 'Polygon') polys.push(g.coordinates.map((s, i) => ring(s, g.encodeOffsets[i])));
+    else if (g.type === 'MultiPolygon') g.coordinates.forEach((p, j) => polys.push(p.map((s, i) => ring(s, g.encodeOffsets[j][i]))));
+  }
+  return polys;
+}
+function loadLiveCoastlines(timeout = 9000) {
+  return new Promise(res => {
+    let done = false; const finish = v => { if (!done) { done = true; res(v); } };
+    window.echarts = { registerMap(name, data) { try { const p = decodeEcharts(data); finish(p.length > 50 ? p : null); } catch (e) { finish(null); } } };
+    const s = document.createElement('script'); s.async = true;
+    s.src = 'https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/js/world.js';
+    s.onerror = () => finish(null); document.head.appendChild(s);
+    setTimeout(() => finish(null), timeout);
+  });
+}
+/* =====================================================================
+   GLSL
+   ===================================================================== */
+const SH = {};
+SH.noise = `
+float hash13(vec3 p){ p=fract(p*.1031); p+=dot(p,p.zyx+31.32); return fract((p.x+p.y)*p.z); }
+float vnoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.-2.*f);
+ return mix(mix(mix(hash13(i),hash13(i+vec3(1,0,0)),f.x),mix(hash13(i+vec3(0,1,0)),hash13(i+vec3(1,1,0)),f.x),f.y),
+            mix(mix(hash13(i+vec3(0,0,1)),hash13(i+vec3(1,0,1)),f.x),mix(hash13(i+vec3(0,1,1)),hash13(i+vec3(1,1,1)),f.x),f.y),f.z); }
+float fbm(vec3 p){ float a=.5,s=0.; for(int i=0;i<6;i++){ s+=a*vnoise(p); p=p*2.02+vec3(1.7,9.2,3.1); a*=.5; } return s; }
+float fbm4(vec3 p){ float a=.5,s=0.; for(int i=0;i<4;i++){ s+=a*vnoise(p); p=p*2.03+vec3(5.1,1.3,7.7); a*=.5; } return s; }
+`;
+SH.heat = `
+vec3 heat(float t){ t=clamp(t,0.,1.);
+ vec3 c0=vec3(.06,.12,.42), c1=vec3(.10,.45,.92), c2=vec3(.30,.80,.96), c3=vec3(.96,.88,.52), c4=vec3(1.,.47,.31), c5=vec3(.86,.15,.16);
+ if(t<.2) return mix(c0,c1,t/.2); if(t<.42) return mix(c1,c2,(t-.2)/.22); if(t<.62) return mix(c2,c3,(t-.42)/.2);
+ if(t<.82) return mix(c3,c4,(t-.62)/.2); return mix(c4,c5,(t-.82)/.18); }
+`;
+/* tropical Pacific concept model — identical formulas exist in JS (see sim) */
+SH.pac = `
+float thermo(float x,float k){ float n=mix(.62,.13,pow(smoothstep(0.,1.,x),1.15)); float e=mix(.47,.37,x); return mix(n,e,k); }
+float sstS(float x,float k){ float n=mix(29.5,21.5,smoothstep(.30,1.,x)); float e=mix(29.2,25.2,smoothstep(.5,1.,x)); return mix(n,e,k); }
+float etaS(float x,float k){ return mix(.10*(.5-x), .022*(.5-x), k); }
+float tempAt(float x,float d,float k){
+ float D=thermo(x,k), ts=sstS(x,k);
+ float above=ts-2.6*d/max(D,.05)*.9, below=13.-10.*(d-D);
+ float t=mix(above,below,smoothstep(D-.03,D+.05,d));
+ t-= (1.-k)*smoothstep(.78,.98,x)*(1.-smoothstep(0.,.42,d))*3.2;
+ return t; }
+`;
+SH.quadVS = `
+out vec2 vUv;
+void main(){ vec2 p=vec2((gl_VertexID<<1)&2, gl_VertexID&2); vUv=p; gl_Position=vec4(p*2.-1.,0.,1.); }`;
+
+/* ---- one-time bake of equirectangular noise fields ---- */
+SH.bakeFS = SH.noise + `
+in vec2 vUv; out vec4 o;
+void main(){
+ float lon=(vUv.x-.5)*6.2831853, lat=(.5-vUv.y)*3.14159265;
+ vec3 p=vec3(cos(lat)*sin(lon), sin(lat), cos(lat)*cos(lon));
+ float d=fbm(p*3.2+3.);
+ vec3 w=vec3(fbm4(p*1.6+1.), fbm4(p*1.6+7.), fbm4(p*1.6+13.));
+ float c1=fbm(p*2.4+w*1.6+11.);
+ float c2=fbm(p*5.5+w*.8+29.);
+ float r=1.-abs(2.*fbm4(p*7.+5.)-1.);
+ o=vec4(d,c1,c2,r);
+}`;
+
+/* ---- Earth ---- */
+SH.earthVS = `
+layout(location=0) in vec3 aPos;
+uniform mat4 uProj,uView,uModel; uniform float uR;
+out vec3 vObj; out vec3 vN; out vec3 vP;
+void main(){ vObj=aPos; vec4 wp=uModel*vec4(aPos*uR,1.); vP=wp.xyz; vN=normalize(mat3(uModel)*aPos); gl_Position=uProj*uView*wp; }`;
+SH.earthFS = SH.noise + SH.heat + SH.pac + `
+in vec3 vObj; in vec3 vN; in vec3 vP; out vec4 o;
+uniform sampler2D uLand,uDetail,uCur;
+uniform vec3 uSun,uCam;
+uniform float uTime,uAmbient,uTemp,uSST,uCurInf,uEnsoVis,uEnsoK,uDesert,uFuture,uPressure,uGrid,uDim,uSahel;
+uniform vec4 uBand;
+#define PI 3.14159265
+vec4 eq(sampler2D s, vec2 uv){ vec2 dx=dFdx(uv), dy=dFdy(uv); dx.x-=floor(dx.x+.5); dy.x-=floor(dy.x+.5); return textureGrad(s,uv,dx,dy); }
+float bnd(float x,float c,float w){ return exp(-(x-c)*(x-c)/(w*w)); }
+float wrapD(float d){ return d-360.*floor((d+180.)/360.); }
+void main(){
+ vec3 n=normalize(vObj);
+ float lon=atan(n.x,n.z), lat=asin(clamp(n.y,-1.,1.));
+ float latD=degrees(lat), lonD=degrees(lon), aL=abs(latD);
+ vec2 uv=vec2(lon/(2.*PI)+.5, .5-lat/PI);
+ vec4 L=eq(uLand,uv), D=eq(uDetail,uv);
+ float land=smoothstep(.40,.60,L.r), des=L.g, ice=L.b, shelf=L.a, dn=D.r, rid=D.a;
+ vec3 rain=vec3(.06,.20,.07), temp=vec3(.17,.29,.12), sav=vec3(.44,.40,.21), tun=vec3(.31,.29,.25), sand=vec3(.80,.62,.40), rock=vec3(.37,.32,.27);
+ vec3 c=mix(temp,rain,1.-smoothstep(8.,20.,aL));
+ c=mix(c,sav,smoothstep(9.,17.,aL)*(1.-smoothstep(27.,38.,aL))*.65);
+ c=mix(c,tun,smoothstep(52.,66.,aL));
+ float dry=clamp(smoothstep(.10,.55,des+(dn-.5)*.35)+uFuture*.42*bnd(aL,28.,11.),0.,1.);
+ vec3 sandV=mix(sand*vec3(.86,.80,.74),sand*vec3(1.05,1.0,.95),smoothstep(.3,.75,D.g))*(.72+.5*dn);
+ sandV=mix(sandV,rock*1.1,smoothstep(.55,.8,rid)*.45);
+ c=mix(c,sandV,dry);
+ c=mix(c,rock*(.8+.4*dn),smoothstep(.6,.82,rid)*.55*(1.-dry));
+ c*=.78+.44*dn;
+ float iceM=clamp(smoothstep(.35,.7,ice)+smoothstep(76.,82.,aL)*land,0.,1.);
+ c=mix(c,vec3(.90,.94,.98)*(.9+.12*dn),iceM);
+ vec3 oc=mix(vec3(.008,.035,.095),vec3(.02,.16,.26),smoothstep(.2,.95,shelf)*.75);
+ oc=mix(oc,vec3(.015,.05,.10),smoothstep(45.,70.,aL)*.5);
+ float sil=mix(78.,86.,uFuture);
+ float seaIce=(1.-land)*clamp(smoothstep(sil,sil+3.,latD+(dn-.5)*8.)+smoothstep(66.5,70.5,-latD+(dn-.5)*6.)*(1.-.45*uFuture),0.,1.);
+ oc=mix(oc,vec3(.80,.86,.92),seaIce*.92);
+ vec3 base=mix(oc,c,land);
+ vec3 N=normalize(vN), V=normalize(uCam-vP), Ls=normalize(uSun);
+ float ndl=dot(N,Ls), day=smoothstep(-.18,.32,ndl);
+ vec3 lit=base*(uAmbient+(1.-uAmbient*.6)*max(ndl,0.)*1.25);
+ vec3 H=normalize(Ls+V);
+ float sp=pow(max(dot(N,H),0.),140.+260.*D.b)*(.5+.6*D.g)*(1.-land)*(1.-seaIce)*day;
+ lit+=vec3(1.,.93,.82)*sp*.5;
+ lit+=vec3(.35,.5,.6)*pow(max(dot(N,H),0.),18.)*.06*(1.-land)*day;
+ float vis=.40+.72*max(day,uAmbient); float ovB=.24+.40*max(day,uAmbient);
+ if(uTemp>.001){ float ins=pow(max(cos(lat),0.),1.25); lit=mix(lit,heat(ins*.74+.12+(dn-.5)*.04)*ovB*1.15,uTemp*.82); }
+ if(uSST>.001){ vec4 Cc=eq(uCur,uv); float t=pow(max(cos(lat),0.),1.7)*.84+.05+uCurInf*(Cc.r*.24-Cc.g*.26)+(dn-.5)*.03;
+   lit=mix(lit,heat(t)*ovB,uSST*(1.-land)*.9); }
+ if(uEnsoVis>.001){
+   float x=wrapD(lonD-120.)/160.; float inR=smoothstep(-.06,.03,x)*(1.-smoothstep(.97,1.06,x))*(1.-smoothstep(4.,19.,aL+(dn-.5)*3.));
+   float ts=sstS(clamp(x,0.,1.),uEnsoK); ts-=(1.-uEnsoK)*smoothstep(.8,1.,x)*2.0*bnd(latD,-3.,6.);
+   float t=(ts-19.5)/11.5;
+   lit=mix(lit,heat(t)*ovB*1.1,uEnsoVis*inR*(1.-land)*.93); }
+ if(uDesert>.001){ float dm=smoothstep(.12,.6,des);
+   lit=mix(lit,mix(lit,vec3(1.,.74,.42)*vis,.55),uDesert*dm);
+   lit+=vec3(.84,.64,.41)*uDesert*.30*(bnd(latD,30.,1.1)+bnd(latD,-30.,1.1)); }
+ if(uSahel>.001){ float sm=smoothstep(10.,12.5,latD)*(1.-smoothstep(17.,19.5,latD))*smoothstep(-18.,-14.,lonD)*(1.-smoothstep(36.,40.,lonD))*land;
+   float st=.6+.4*step(.5,fract((lonD+latD)*.9)); lit=mix(lit,vec3(1.,.42,.28)*vis*st,uSahel*sm*.6); }
+ if(uPressure>.001){ float lo=bnd(latD,0.,3.2)+bnd(aL,60.,2.8); float hi=bnd(aL,30.,3.2)+smoothstep(83.,89.,aL);
+   lit+=uPressure*(vec3(.41,.84,1.)*lo*.55+vec3(.95,.70,.40)*hi*.55); }
+ if(uGrid>.001){ float fw=fwidth(latD)*1.2; float g=abs(fract(latD/30.+.5)-.5)*30.; float ln=1.-smoothstep(0.,fw*1.5,g);
+   float g2=abs(fract(latD/10.+.5)-.5)*10.; float ln2=1.-smoothstep(0.,fw,g2);
+   lit+=vec3(.70,.86,1.)*(ln*.55+ln2*.12)*uGrid; }
+ if(uBand.z>.001){ float ib=smoothstep(uBand.x-.8,uBand.x+.8,aL)*(1.-smoothstep(uBand.y-.8,uBand.y+.8,aL));
+   lit=mix(lit,lit*1.2+vec3(.25,.6,.95)*.32*vis,uBand.z*ib);
+   float fw=fwidth(latD); lit+=vec3(.6,.9,1.)*uBand.z*(1.-smoothstep(0.,fw*2.,abs(aL-uBand.x))+1.-smoothstep(0.,fw*2.,abs(aL-uBand.y)))*.8; }
+ if(uFuture>.001){ float fw=uFuture*(.35+.55*abs(sin(lat))); lit+=vec3(.20,.07,.0)*vis*fw*.55; lit=mix(lit,vec3(dot(lit,vec3(.3,.5,.2)))*vec3(1.1,.95,.8),fw*.18*land); }
+ float fr=pow(1.-max(dot(N,V),0.),2.6);
+ lit+=mix(vec3(.30,.62,1.),vec3(1.,.55,.35),uFuture*.5)*fr*(.12+.9*day)*.6;
+ o=vec4(lit*uDim,1.);
+}`;
+SH.cloudFS = SH.noise + `
+in vec3 vObj; in vec3 vN; in vec3 vP; out vec4 o;
+uniform sampler2D uDetail; uniform vec3 uSun,uCam; uniform float uTime,uA,uStorm;
+#define PI 3.14159265
+float bnd(float x,float c,float w){ return exp(-(x-c)*(x-c)/(w*w)); }
+void main(){
+ vec3 n=normalize(vObj); float lon=atan(n.x,n.z), lat=asin(clamp(n.y,-1.,1.)); float aL=abs(degrees(lat));
+ vec2 uv=vec2(lon/(2.*PI)+.5, .5-lat/PI);
+ float a1=textureLod(uDetail,uv+vec2(uTime*.0016,0.),0.).g, a2=textureLod(uDetail,uv*vec2(1.,1.)+vec2(-uTime*.0011,.002),0.).b;
+ float amt=.40+.20*bnd(aL,4.,7.)-.16*bnd(aL,26.,8.)+.12*bnd(aL,55.,11.)+uStorm*.06;
+ float d=a1*.75+a2*.35;
+ float c=smoothstep(1.02-amt,1.02-amt+.14,d)*(.75+.25*smoothstep(.4,.7,a2));
+ vec3 N=normalize(vN), Ls=normalize(uSun), V=normalize(uCam-vP);
+ float ndl=dot(N,Ls);
+ vec3 col=vec3(1.)*(.03+max(ndl,0.)*1.05)+vec3(1.,.55,.35)*.05*bnd(ndl,.03,.08);
+ float edge=smoothstep(0.,.25,dot(N,V));
+ o=vec4(col*c*uA*edge, c*uA*.92*edge);
+}`;
+SH.atmoFS = `
+in vec3 vObj; in vec3 vN; in vec3 vP; out vec4 o;
+uniform vec3 uSun,uCam,uCenter; uniform float uA,uWarm,uRim;
+void main(){
+ vec3 N=normalize(vN), V=normalize(uCam-vP);
+ float k=-dot(N,V);
+ float g=pow(smoothstep(0.,uRim,k),1.6)*(1.-smoothstep(uRim,uRim*1.9,k));
+ vec3 P=normalize(vP-uCenter); float s=dot(P,normalize(uSun));
+ float day=smoothstep(-.3,.5,s), tw=exp(-s*s*40.);
+ vec3 col=mix(vec3(.28,.60,1.),vec3(1.,.55,.32),tw*.28+uWarm*.6);
+ o=vec4(col*g*(.08+day*1.25)*uA,0.);
+}`;
+/* ---- stars ---- */
+SH.starVS = `
+layout(location=0) in vec3 aPos; layout(location=1) in vec2 aS;
+uniform mat4 uProj,uView; uniform float uDpr,uTime;
+out float vB;
+void main(){ vec3 p=mat3(uView)*aPos*60.; gl_Position=uProj*vec4(p,1.); gl_Position.z=gl_Position.w*.9999;
+ float tw=.75+.25*sin(uTime*(.6+aS.y*2.)+aS.y*40.); gl_PointSize=aS.x*uDpr; vB=tw*(.35+aS.x*.3); }`;
+SH.starFS = `in float vB; out vec4 o; void main(){ vec2 d=gl_PointCoord-.5; float a=smoothstep(.5,.0,length(d)); o=vec4(vec3(.85,.9,1.)*a*vB,0.); }`;
+/* ---- streaks / glows (instanced capsules) ---- */
+SH.streakVS = `
+layout(location=0) in vec2 aC;
+layout(location=1) in vec3 iH; layout(location=2) in vec3 iT; layout(location=3) in vec4 iCol; layout(location=4) in float iW;
+uniform mat4 uVP; uniform vec2 uRes; uniform float uF,uDpr;
+out vec4 vCol; out vec3 vL; out float vR;
+void main(){
+ vec4 ch=uVP*vec4(iH,1.), ct=uVP*vec4(iT,1.);
+ if(ch.w<.02||ct.w<.02||iCol.a<.002){ gl_Position=vec4(2.,2.,2.,1.); return; }
+ vec2 sh=ch.xy/ch.w*.5*uRes, st=ct.xy/ct.w*.5*uRes;
+ vec2 d=sh-st; float L=length(d); vec2 dir=L>.001?d/L:vec2(1.,0.); vec2 nr=vec2(-dir.y,dir.x);
+ float r=iW>0.? max(iW*uF*.5*uRes.y/ch.w, .7*uDpr) : -iW*uDpr;
+ float t=aC.x, s=aC.y;
+ vec2 p=mix(st,sh,t)+nr*s*r+dir*(t*2.-1.)*r;
+ vec4 cc=mix(ct,ch,t);
+ gl_Position=vec4(p/(.5*uRes)*cc.w, cc.z, cc.w);
+ vL=vec3(t*(L+2.*r)-r, s*r, L); vR=r; vCol=iCol;
+}`;
+SH.streakFS = `
+in vec4 vCol; in vec3 vL; in float vR; out vec4 o;
+void main(){
+ float a=clamp(vL.x,0.,vL.z), dx=vL.x-a, dd=length(vec2(dx,vL.y));
+ float al=smoothstep(vR,vR*.15,dd);
+ float g=vL.z>2.?mix(.12,1.,clamp(vL.x/vL.z,0.,1.)):1.;
+ al*=g; o=vec4(vCol.rgb*vCol.a*al,0.);
+}`;
+/* ---- Pacific cross-section slab ---- */
+SH.slabVS = SH.pac + `
+layout(location=0) in vec3 aP; layout(location=1) in float aF;
+uniform mat4 uVP,uEarth; uniform float uMorph,uK,uTime;
+out vec3 vP; out vec3 vW; out float vF; out vec3 vN;
+vec3 sphv(float la,float lo){ la=radians(la); lo=radians(lo); return vec3(cos(la)*sin(lo),sin(la),cos(la)*cos(lo)); }
+void main(){
+ float X=aP.x, Z=aP.y, Dp=aP.z;
+ float et=etaS(X,uK);
+ float wv=aF<.5? .006*sin(X*70.+uTime*1.6+Z*13.)*sin(Z*9.+uTime*.9) : 0.;
+ vec3 fp=vec3(mix(-1.5,1.5,X), mix(.2+et+wv,-.6,Dp), mix(.36,-.36,Z));
+ vec3 g=sphv(mix(-3.,9.,Z),120.+160.*X)*(1.004-.07*Dp);
+ vec3 gw=(uEarth*vec4(g,1.)).xyz;
+ vec3 wp=mix(gw,fp,uMorph);
+ vec3 fn= aF<.5?vec3(0,1,0): aF<1.5?vec3(0,0,1): aF<2.5?vec3(0,0,-1): aF<3.5?vec3(0,-1,0): aF<4.5?vec3(-1,0,0):vec3(1,0,0);
+ vN=normalize(mix(normalize(mat3(uEarth)*g),fn,uMorph));
+ vP=aP; vW=wp; vF=aF; gl_Position=uVP*vec4(wp,1.);
+}`;
+SH.slabFS = SH.noise + SH.heat + SH.pac + `
+in vec3 vP; in vec3 vW; in float vF; in vec3 vN; out vec4 o;
+uniform float uK,uTime,uAlpha,uMorph,uLine; uniform vec3 uSun,uCam;
+void main(){
+ float X=vP.x, Z=vP.y, Dp=vP.z;
+ vec3 N=normalize(vN), V=normalize(uCam-vW), Ls=normalize(uSun);
+ vec3 col;
+ if(vF<.5){
+   float t=tempAt(X,0.,uK); vec3 c=heat((t-12.)/19.);
+   float ndl=max(dot(N,Ls),0.); vec3 H=normalize(Ls+V);
+   float sp=pow(max(dot(N,H),0.),90.)*.9;
+   float rip=vnoise(vec3(X*90.,Z*40.,uTime*.6))*.12;
+   col=c*(.62+.38*ndl+rip)+vec3(1.,.95,.85)*sp;
+   col+=vec3(.5,.75,1.)*pow(1.-max(dot(N,V),0.),3.)*.25;
+ } else if(vF<1.5){
+   float t=tempAt(X,Dp,uK); vec3 c=heat((t-6.)/25.);
+   float D=thermo(X,uK);
+   float ln=exp(-pow((Dp-D)/.0065,2.))*uLine;
+   float caus=vnoise(vec3(X*30.,Dp*14.,uTime*.25))*.10;
+   col=c*(.78+caus-.18*Dp)+vec3(1.)*ln*.55;
+   col*=1.-.25*smoothstep(.85,1.,Dp);
+ } else {
+   col=vec3(.03,.06,.11)*(1.+.4*max(dot(N,Ls),0.));
+ }
+ col=mix(vec3(.02,.12,.22),col,smoothstep(.4,.95,uMorph));
+ o=vec4(col,uAlpha);
+}`;
+/* ---- terrain patch (desertification model) ---- */
+SH.terrVS = `
+layout(location=0) in vec3 aF; layout(location=1) in vec3 aG; layout(location=2) in vec3 aN;
+layout(location=3) in vec4 aZ; layout(location=4) in vec4 aQ;
+uniform mat4 uVP,uEarth; uniform float uMorph;
+out vec3 vW; out vec3 vN; out vec4 vZ; out vec4 vQ; out vec3 vF;
+void main(){
+ vec3 gw=(uEarth*vec4(aG,1.)).xyz;
+ vec3 wp=mix(gw,aF,uMorph);
+ vN=normalize(mix(normalize(mat3(uEarth)*aG),aN,uMorph));
+ vW=wp; vZ=aZ; vQ=aQ; vF=aF; gl_Position=uVP*vec4(wp,1.);
+}`;
+SH.terrFS = SH.noise + `
+in vec3 vW; in vec3 vN; in vec4 vZ; in vec4 vQ; in vec3 vF; out vec4 o;
+uniform vec3 uSun,uCam; uniform float uGrass,uFarm,uGraze,uForest,uWater,uSand,uDry,uAlpha,uTime,uMorph;
+float cov(float n,float lvl){ return smoothstep(n-.07,n+.07,lvl); }
+void main(){
+ float forest=vZ.x, farm=vZ.y, graze=vZ.z, river=vZ.w;
+ float n1=vQ.x, n2=vQ.y, south=vQ.z;
+ vec3 soil=mix(vec3(.42,.27,.16),vec3(.62,.46,.30),uDry*.8)*(.85+.3*n2);
+ vec3 sandC=vec3(.86,.68,.45)*(.9+.18*n2);
+ vec3 green=mix(vec3(.27,.40,.14),vec3(.58,.53,.25),clamp(uDry+.12,0.,1.))*(.80+.40*n2);
+ float lvl=uGrass; lvl=mix(lvl,uGraze,graze); lvl=mix(lvl,uForest*.9+.1*uGrass,forest);
+ float v=cov(n1,lvl);
+ vec3 c=mix(soil,green,v);
+ // farmland: furrow rows
+ if(farm>.01){
+   float rows=.5+.5*sin(vF.x*220.+vF.z*30.);
+   vec3 crop=mix(vec3(.30,.50,.16),vec3(.62,.55,.25),uDry*.7);
+   vec3 bare=mix(vec3(.47,.31,.19),vec3(.66,.50,.33),1.-uFarm)*(.9+.1*rows);
+   float cv=cov(n1*.7+.15,uFarm);
+   vec3 fc=mix(bare,mix(crop*(.82+.25*rows),bare,.18),cv);
+   c=mix(c,fc,smoothstep(0.,.5,farm));
+ }
+ // cracked degraded soil
+ float crack=smoothstep(.47,.5,abs(vnoise(vF*vec3(60.,1.,60.))-.5)+.0)*(1.-v);
+ c*=1.-.25*crack*uDry;
+ // sand encroachment from the north (desert edge)
+ float sf=uSand*1.15+.08; float s=1.-smoothstep(sf-.09,sf+.02,south+(n1-.5)*.22);
+ float rip=.92+.1*sin(vF.x*90.+sin(vF.z*25.)*3.);
+ c=mix(c,sandC*rip,s);
+ // river / dry riverbed
+ float wet=smoothstep(1.-uWater-.02,1.-uWater+.04,river);
+ vec3 bed=vec3(.70,.64,.56)*(.9+.1*n2);
+ c=mix(c,bed,smoothstep(.55,.75,river)*(1.-wet));
+ vec3 N=normalize(vN), Ls=normalize(uSun), V=normalize(uCam-vW);
+ float ndl=max(dot(N,Ls),0.);
+ vec3 col=c*(.30+.95*ndl);
+ vec3 water=vec3(.05,.22,.36)+vec3(1.,.95,.85)*pow(max(dot(reflect(-Ls,N),V),0.),40.)*.8;
+ col=mix(col,water,wet*smoothstep(.6,.8,river));
+ col+=vec3(.95,.75,.5)*pow(1.-max(dot(N,V),0.),4.)*.15;
+ float edge=smoothstep(1.5,1.3,max(abs(vF.x),abs(vF.z)));
+ o=vec4(col,uAlpha*mix(1.,edge,uMorph));
+}`;
+/* ---- instanced props: trees, livestock, houses, land blocks ---- */
+SH.propVS = `
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm;
+layout(location=2) in vec3 iPos; layout(location=3) in vec3 iScl; layout(location=4) in vec3 iCol; layout(location=5) in vec4 iP;
+uniform mat4 uVP; uniform float uForest,uGrass,uLive,uVis,uTime,uDry,uSlab;
+out vec3 vN; out vec3 vC; out vec3 vW;
+void main(){
+ float th=iP.x, kind=iP.y, ph=iP.z;
+ vec3 s=iScl; vec3 col=iCol; vec3 off=vec3(0.); float vis=uVis;
+ if(kind<.5||(kind>.5&&kind<1.5)){
+   float lvl=kind<.5?uForest:uGrass;
+   float alive=smoothstep(th-.04,th+.04,lvl);
+   vec3 leaf=mix(col,vec3(.50,.45,.22),uDry*.75);
+   float isTrunk=step(aPos.y,.14);
+   col=mix(vec3(.30,.20,.12),leaf,1.-isTrunk);
+   s.y*=mix(.10,1.,alive); s.xz*=mix(.55,1.,alive);
+   col=mix(vec3(.36,.25,.15),col,alive);
+ } else if(kind<2.5){
+   vis*=step(th,uLive);
+   off=vec3(sin(uTime*.25+ph)*.03,0.,cos(uTime*.2+ph*1.3)*.03);
+ } else if(kind>3.5&&kind<5.5){ vis=uSlab; }
+ vec3 wp=iPos+off+aPos*s*vis;
+ vN=aNrm; vC=col; vW=wp;
+ gl_Position=uVP*vec4(wp,1.);
+ if(vis<.001) gl_Position=vec4(2.,2.,2.,1.);
+}`;
+SH.propFS = `
+in vec3 vN; in vec3 vC; in vec3 vW; out vec4 o; uniform vec3 uSun;
+void main(){ float d=max(dot(normalize(vN),normalize(uSun)),0.); o=vec4(vC*(.35+.85*d),1.); }`;
+/* ---- post ---- */
+SH.brightFS = `
+in vec2 vUv; out vec4 o; uniform sampler2D uT; uniform vec2 uTx; uniform float uThr;
+void main(){ vec3 c=vec3(0.);
+ c+=texture(uT,vUv+uTx*vec2(-1,-1)).rgb; c+=texture(uT,vUv+uTx*vec2(1,-1)).rgb; c+=texture(uT,vUv+uTx*vec2(-1,1)).rgb; c+=texture(uT,vUv+uTx*vec2(1,1)).rgb; c*=.25;
+ float l=max(c.r,max(c.g,c.b)); float k=clamp((l-uThr)/(l+1e-4),0.,1.); o=vec4(c*k,1.); }`;
+SH.blurFS = `
+in vec2 vUv; out vec4 o; uniform sampler2D uT; uniform vec2 uDir;
+void main(){ vec3 c=texture(uT,vUv).rgb*.227;
+ c+=(texture(uT,vUv+uDir*1.385).rgb+texture(uT,vUv-uDir*1.385).rgb)*.316;
+ c+=(texture(uT,vUv+uDir*3.231).rgb+texture(uT,vUv-uDir*3.231).rgb)*.070; o=vec4(c,1.); }`;
+SH.compFS = `
+in vec2 vUv; out vec4 o; uniform sampler2D uScene,uBloom,uHist; uniform float uBloomK,uBlur,uVig,uExpo;
+vec3 aces(vec3 x){ return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.); }
+void main(){
+ vec3 c=texture(uScene,vUv).rgb+texture(uBloom,vUv).rgb*uBloomK;
+ c=aces(c*uExpo);
+ vec2 q=vUv-.5; c*=1.-uVig*dot(q,q)*1.6;
+ vec3 h=texture(uHist,vUv).rgb;
+ c=mix(c,h,uBlur);
+ o=vec4(c,1.);
+}`;
+SH.copyFS = `in vec2 vUv; out vec4 o; uniform sampler2D uT; void main(){ o=vec4(texture(uT,vUv).rgb,1.); }`;
+/* =====================================================================
+   Renderer: programs, meshes, batched streaks, post-processing
+   ===================================================================== */
+const R = {};
+function initRenderer() {
+  R.earth = new Prog(SH.earthVS, SH.earthFS, 'earth');
+  R.cloud = new Prog(SH.earthVS, SH.cloudFS, 'cloud');
+  R.atmo = new Prog(SH.earthVS, SH.atmoFS, 'atmo');
+  R.star = new Prog(SH.starVS, SH.starFS, 'star');
+  R.streak = new Prog(SH.streakVS, SH.streakFS, 'streak');
+  R.slab = new Prog(SH.slabVS, SH.slabFS, 'slab');
+  R.terr = new Prog(SH.terrVS, SH.terrFS, 'terrain');
+  R.prop = new Prog(SH.propVS, SH.propFS, 'prop');
+  R.bake = new Prog(SH.quadVS, SH.bakeFS, 'bake');
+  R.bright = new Prog(SH.quadVS, SH.brightFS, 'bright');
+  R.blur = new Prog(SH.quadVS, SH.blurFS, 'blur');
+  R.comp = new Prog(SH.quadVS, SH.compFS, 'comp');
+  R.copy = new Prog(SH.quadVS, SH.copyFS, 'copy');
+  R.emptyVao = gl.createVertexArray();
+  R.sphere = sphereMesh(200, 110);
+
+  /* bake equirect noise once on the GPU */
+  const bw = 2048, bh = 1024; const bt = new Target(bw, bh);
+  bt.bind(); R.bake.use(); gl.bindVertexArray(R.emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.bindTexture(gl.TEXTURE_2D, bt.tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.generateMipmap(gl.TEXTURE_2D);
+  R.detailTex = bt.tex; gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+  /* stars */
+  const sp = [], ss = [];
+  for (let i = 0; i < 2600; i++) { const u = rr(-1, 1), t = rr(0, TAU), q = Math.sqrt(1 - u * u); sp.push(q * Math.cos(t), u, q * Math.sin(t)); const big = rnd() < .06; ss.push(big ? rr(2.2, 3.4) : rr(.8, 1.9), rnd()); }
+  R.stars = vao([{ buf: buffer(new Float32Array(sp)), loc: 0, size: 3 }, { buf: buffer(new Float32Array(ss)), loc: 1, size: 2 }]); R.starN = 2600;
+
+  /* streak batch */
+  R.SCAP = 26000; R.sdata = new Float32Array(R.SCAP * 12); R.sn = 0;
+  R.sbuf = buffer(R.sdata.byteLength, gl.ARRAY_BUFFER, gl.DYNAMIC_DRAW);
+  const quad = buffer(new Float32Array([0, -1, 0, 1, 1, -1, 1, 1]));
+  const st = 48;
+  R.svao = vao([{ buf: quad, loc: 0, size: 2 },
+    { buf: R.sbuf, loc: 1, size: 3, stride: st, offset: 0, div: 1 }, { buf: R.sbuf, loc: 2, size: 3, stride: st, offset: 12, div: 1 },
+    { buf: R.sbuf, loc: 3, size: 4, stride: st, offset: 24, div: 1 }, { buf: R.sbuf, loc: 4, size: 1, stride: st, offset: 40, div: 1 }]);
+
+  /* slab */
+  buildSlabMesh();
+  /* post targets */
+  R.scene = new Target(4, 4, { depth: true, hdr: true });
+  R.b1 = new Target(4, 4, { hdr: true }); R.b2 = new Target(4, 4, { hdr: true });
+  R.h = [new Target(4, 4), new Target(4, 4)]; R.hi = 0; R.histValid = false;
+}
+/* push a capsule: head xyz, tail xyz, rgba (additive), width (>0 world units, <0 css px) */
+function S(hx, hy, hz, tx, ty, tz, r, g, b, a, w) {
+  if (R.sn >= R.SCAP || a < .003) return;
+  const d = R.sdata, o = R.sn * 12; R.sn++;
+  d[o] = hx; d[o + 1] = hy; d[o + 2] = hz; d[o + 3] = tx; d[o + 4] = ty; d[o + 5] = tz;
+  d[o + 6] = r; d[o + 7] = g; d[o + 8] = b; d[o + 9] = a; d[o + 10] = w;
+}
+function Sv(h, t, c, a, w) { S(h[0], h[1], h[2], t[0], t[1], t[2], c[0], c[1], c[2], a, w); }
+
+function buildSlabMesh() {
+  const P = [], F = [], I = [];
+  const grid = (nu, nv, face, fn) => {
+    const base = P.length / 3;
+    for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) { P.push(...fn(i / nu, j / nv)); F.push(face); }
+    for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) { const a = base + j * (nu + 1) + i, b = a + nu + 1; I.push(a, b, a + 1, b, b + 1, a + 1); }
+  };
+  grid(140, 14, 0, (u, v) => [u, v, 0]);
+  grid(140, 56, 1, (u, v) => [u, 0, v]);
+  grid(60, 10, 2, (u, v) => [u, 1, v]);
+  grid(60, 8, 3, (u, v) => [u, v, 1]);
+  grid(10, 30, 4, (u, v) => [0, u, v]);
+  grid(10, 30, 5, (u, v) => [1, u, v]);
+  R.slabVao = vao([{ buf: buffer(new Float32Array(P)), loc: 0, size: 3 }, { buf: buffer(new Float32Array(F)), loc: 1, size: 1 }], buffer(new Uint32Array(I), gl.ELEMENT_ARRAY_BUFFER));
+  R.slabN = I.length;
+}
+/* simple meshes for props */
+function meshCone(seg, trunk) {
+  const P = [], N = [];
+  const tri = (a, b, c, n) => { P.push(...a, ...b, ...c); for (let k = 0; k < 3; k++) N.push(...n); };
+  const ring = (y, r, i) => [Math.cos(i / seg * TAU) * r, y, Math.sin(i / seg * TAU) * r];
+  for (let i = 0; i < seg; i++) {
+    const y0 = trunk ? .16 : 0, a = ring(y0, .5, i), b = ring(y0, .5, i + 1), top = [0, 1, 0];
+    const m = (i + .5) / seg * TAU, n = V3.norm([Math.cos(m), .5 / (1 - y0) * .9, Math.sin(m)]); tri(a, top, b, n);
+    tri(a, b, [0, y0, 0], [0, -1, 0]);
+    if (trunk) { const c = ring(0, .1, i), d = ring(0, .1, i + 1), e = ring(.12, .1, i), f = ring(.12, .1, i + 1), nn = V3.norm([Math.cos((i + .5) / seg * TAU), 0, Math.sin((i + .5) / seg * TAU)]); tri(c, e, d, nn); tri(d, e, f, nn); }
+  }
+  return { P: new Float32Array(P), N: new Float32Array(N), n: P.length / 3 };
+}
+function meshBox() {
+  const P = [], N = [];
+  const f = (o, u, v, n) => { const q = [o, V3.add(o, u), V3.add(V3.add(o, u), v), V3.add(o, v)]; for (const k of [0, 1, 2, 0, 2, 3]) { P.push(...q[k]); N.push(...n); } };
+  f([-.5, 0, .5], [1, 0, 0], [0, 1, 0], [0, 0, 1]); f([.5, 0, -.5], [-1, 0, 0], [0, 1, 0], [0, 0, -1]);
+  f([-.5, 0, -.5], [0, 0, 1], [0, 1, 0], [-1, 0, 0]); f([.5, 0, .5], [0, 0, -1], [0, 1, 0], [1, 0, 0]);
+  f([-.5, 1, .5], [1, 0, 0], [0, 0, -1], [0, 1, 0]); f([-.5, 0, -.5], [1, 0, 0], [0, 0, 1], [0, -1, 0]);
+  return { P: new Float32Array(P), N: new Float32Array(N), n: P.length / 3 };
+}
+/* instanced prop set: inst = [{p:[x,y,z], s:[x,y,z], c:[r,g,b], q:[th,kind,phase,0]}] */
+function propSet(mesh, inst) {
+  const D = new Float32Array(inst.length * 13);
+  inst.forEach((o, i) => D.set([...o.p, ...o.s, ...o.c, ...o.q], i * 13));
+  const ib = buffer(D), st = 52;
+  return {
+    vao: vao([{ buf: buffer(mesh.P), loc: 0, size: 3 }, { buf: buffer(mesh.N), loc: 1, size: 3 },
+      { buf: ib, loc: 2, size: 3, stride: st, offset: 0, div: 1 }, { buf: ib, loc: 3, size: 3, stride: st, offset: 12, div: 1 },
+      { buf: ib, loc: 4, size: 3, stride: st, offset: 24, div: 1 }, { buf: ib, loc: 5, size: 4, stride: st, offset: 36, div: 1 }]),
+    n: mesh.n, count: inst.length
+  };
+}
+function drawProps(set, cam, u) {
+  if (!set || !set.count) return;
+  R.prop.use().f('uVP', cam.vp).f('uSun', u.sun).f('uForest', u.forest).f('uGrass', u.grass).f('uLive', u.live).f('uVis', u.vis)
+    .f('uTime', u.time).f('uDry', u.dry).f('uSlab', u.slab);
+  gl.bindVertexArray(set.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, set.n, set.count);
+}
+function drawStreaks(cam, W, H) {
+  if (!R.sn) return;
+  gl.bindBuffer(gl.ARRAY_BUFFER, R.sbuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, R.sdata, 0, R.sn * 12);
+  R.streak.use().f('uVP', cam.vp).f('uRes', W, H).f('uF', cam.f).f('uDpr', cam.dpr);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.depthMask(false);
+  gl.bindVertexArray(R.svao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, R.sn);
+  gl.depthMask(true); gl.disable(gl.BLEND);
+}
+function postProcess(W, H, blur, bloomK) {
+  const sc = R.scene; gl.disable(gl.DEPTH_TEST); gl.bindVertexArray(R.emptyVao);
+  R.b1.bind(); R.bright.use().tex('uT', 0, sc.tex).f('uTx', 1 / sc.w, 1 / sc.h).f('uThr', .62); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  for (let k = 0; k < 2; k++) {
+    R.b2.bind(); R.blur.use().tex('uT', 0, R.b1.tex).f('uDir', (1.6 + k) / R.b1.w, 0); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    R.b1.bind(); R.blur.use().tex('uT', 0, R.b2.tex).f('uDir', 0, (1.6 + k) / R.b1.h); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  const cur = R.h[R.hi], prev = R.h[1 - R.hi];
+  cur.bind(); R.comp.use().tex('uScene', 0, sc.tex).tex('uBloom', 1, R.b1.tex).tex('uHist', 2, prev.tex)
+    .f('uBloomK', bloomK).f('uBlur', R.histValid ? blur : 0).f('uVig', .55).f('uExpo', 1.08); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
+  R.copy.use().tex('uT', 0, cur.tex); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  R.hi = 1 - R.hi; R.histValid = true;
+}
+function resizeTargets(W, H) {
+  R.scene.resize(W, H); R.b1.resize(W / 4, H / 4); R.b2.resize(W / 4, H / 4); R.h[0].resize(W, H); R.h[1].resize(W, H); R.histValid = false;
+}
+/* =====================================================================
+   Science simulations (concept models) — particles & state
+   ===================================================================== */
+const sgnp = (x, p) => Math.sign(x) * Math.pow(Math.abs(x), p);
+const COL = {
+  white: [.88, .94, 1], warm: [1, .47, .31], cold: [.22, .73, .96], cyan: [.41, .84, 1], gold: [.84, .64, .41],
+  rise: [1, .58, .36], sink: [.36, .74, 1], trade: [.41, .84, 1], west: [.97, .97, 1], polar: [.66, .70, 1], rain: [.62, .82, 1]
+};
+/* ---------- general circulation: 3 cells × 2 hemispheres ---------- */
+const CELLS = [
+  { lat0: 0, lat1: 30, h: .21, direct: true, name: '해들리 순환', range: '위도 0° ~ 30°', kind: '직접 순환', wind: '무역풍' },
+  { lat0: 30, lat1: 60, h: .15, direct: false, name: '페렐 순환', range: '위도 30° ~ 60°', kind: '간접 순환', wind: '편서풍' },
+  { lat0: 60, lat1: 90, h: .11, direct: true, name: '극순환', range: '위도 60° ~ 90°', kind: '직접 순환', wind: '극동풍' },
+];
+function loopLH(c, s) {
+  const th = s * TAU * (c.direct ? -1 : 1), a = (c.lat1 - c.lat0) / 2 * .88, pc = (c.lat0 + c.lat1) / 2;
+  const h0 = .02, h1 = c.h, hc = (h0 + h1) / 2, b = (h1 - h0) / 2;
+  return [pc + a * sgnp(Math.cos(th), .7), hc + b * sgnp(Math.sin(th), .7)];
+}
+/* surface wind (deg / unit time). cf: Coriolis (rotation) factor 0..1. Returns [east, north]. */
+function windUV(lat, cf) {
+  const a = Math.abs(lat), hs = lat >= 0 ? 1 : -1; let u, v, vm, sh;
+  if (a < 30) { sh = Math.pow(Math.sin(Math.PI * a / 30), .45); u = -1; v = -.42; vm = -1; }
+  else if (a < 60) { sh = Math.pow(Math.sin(Math.PI * (a - 30) / 30), .45); u = 1.15; v = .38; vm = 1; }
+  else { sh = Math.pow(Math.sin(Math.PI * Math.min(a - 60, 29.5) / 30), .45); u = -.75; v = -.32; vm = -1; }
+  return [u * cf * sh, (v * cf + vm * .85 * (1 - cf)) * sh * hs];
+}
+const AIR = { N: 4200 };
+function initAir() {
+  const N = AIR.N; AIR.cell = new Uint8Array(N); AIR.s = new Float32Array(N); AIR.side = new Float32Array(N); AIR.off = new Float32Array(N);
+  AIR.spd = new Float32Array(N); AIR.wlat = new Float32Array(N); AIR.wlon = new Float32Array(N); AIR.life = new Float32Array(N); AIR.lmax = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    AIR.cell[i] = i % 6; AIR.s[i] = rnd(); AIR.side[i] = rnd() < .5 ? -1 : 1; AIR.off[i] = rr(-11, 11); AIR.spd[i] = rr(.8, 1.2);
+    respawnWind(i, true);
+  }
+}
+function respawnWind(i, any) {
+  const c = CELLS[AIR.cell[i] % 3], hem = AIR.cell[i] < 3 ? 1 : -1;
+  AIR.wlat[i] = hem * rr(c.lat0 + 1, Math.min(c.lat1 - 1, 88)); AIR.wlon[i] = rr(-180, 180);
+  AIR.lmax[i] = rr(2.5, 5); AIR.life[i] = any ? rnd() * AIR.lmax[i] : AIR.lmax[i];
+}
+function updateAir(dt, st) {
+  const cf = P.coriolis.v, ts = st.ts;
+  for (let i = 0; i < AIR.N; i++) {
+    AIR.s[i] = (AIR.s[i] + dt * ts * AIR.spd[i] * .055) % 1;
+    const [u, v] = windUV(AIR.wlat[i], cf), k = dt * ts * 9 * AIR.spd[i];
+    AIR.wlat[i] += v * k; AIR.wlon[i] += u * k / Math.max(.15, Math.cos(AIR.wlat[i] * D2R));
+    AIR.life[i] -= dt * ts;
+    const c = CELLS[AIR.cell[i] % 3], al = Math.abs(AIR.wlat[i]);
+    if (AIR.life[i] <= 0 || al < c.lat0 - .5 || al > c.lat1 + .5 || Math.sign(AIR.wlat[i]) !== (AIR.cell[i] < 3 ? 1 : -1) && al > .5) respawnWind(i, false);
+  }
+}
+function emitAir(st) {
+  const vis = P.air.v; if (vis < .01) return;
+  const m = P.windMorph.v, E = st.E, face = st.faceLon, cf = P.coriolis.v;
+  const cellA = [P.cellA0.v, P.cellA1.v, P.cellA2.v], beltA = [P.beltA0.v, P.beltA1.v, P.beltA2.v];
+  const step = st.lowPower ? 2 : 1;
+  for (let i = 0; i < AIR.N; i += step) {
+    const ci = AIR.cell[i] % 3, c = CELLS[ci], hem = AIR.cell[i] < 3 ? 1 : -1;
+    const a = vis * lerp(cellA[ci], beltA[ci], m); if (a < .01) continue;
+    // cell loop position
+    const [la, h] = loopLH(c, AIR.s[i]), [la2, h2] = loopLH(c, AIR.s[i] - .04 * (AIR.spd[i]));
+    const lonC = face + AIR.side[i] * 90 + AIR.off[i];
+    // wind position
+    const wl = AIR.wlat[i], wo = AIR.wlon[i], [u, v] = windUV(wl, cf);
+    const tl = wl - v * 1.6, to = wo - u * 1.6 / Math.max(.15, Math.cos(wl * D2R));
+    const dlon = wrap180(wo - lonC), dlon2 = wrap180(to - lonC);
+    const lat = lerp(la * hem, wl, m), lon = lonC + dlon * m, alt = lerp(h, .012, m);
+    const latT = lerp(la2 * hem, tl, m), lonT = lonC + dlon2 * m, altT = lerp(h2, .012, m);
+    const H = M4.xf(E, sph(lat, lon, 1 + alt)), T = M4.xf(E, sph(latT, lonT, 1 + altT));
+    // color: cells by vertical motion, winds by belt
+    const dh = (h - h2) * 40; let col;
+    if (dh > .05) col = mixc(COL.white, COL.rise, Math.min(1, dh * 1.2)); else if (dh < -.05) col = mixc(COL.white, COL.sink, Math.min(1, -dh * 1.2)); else col = COL.white;
+    const bc = ci === 0 ? COL.trade : ci === 1 ? COL.west : COL.polar;
+    col = mixc(col, bc, m);
+    const lf = AIR.life[i] / AIR.lmax[i], fade = lerp(1, Math.min(1, Math.min(lf, 1 - lf) * 6), m);
+    Sv(H, T, col, a * fade * lerp(.42, .75, m), .0062);
+  }
+}
+const mixc = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+
+/* ---------- surface currents ---------- */
+const CURP = [];
+function initCurrents() {
+  GEO.CURRENTS.forEach((c, ci) => {
+    const n = Math.round(c.len * (c.loop ? 1.1 : 2.6));
+    for (let k = 0; k < n; k++) CURP.push({ c: ci, t: rnd(), off: rr(-1.4, 1.4), spd: rr(.8, 1.2) });
+  });
+}
+function updateCurrents(dt, st) {
+  const sp = P.curSpeed.v * st.ts;
+  for (const p of CURP) { const c = GEO.CURRENTS[p.c]; p.t += dt * sp * p.spd * c.speed * 5.5 / c.len; if (p.t > 1) p.t -= 1; }
+}
+function curAlpha(c) {
+  let a = P.cur.v * (c.set === 'pac' ? 1 : P.curOther.v) * (c.ref ? .6 : 1);
+  if (APP.selCur) a *= (APP.selCur === c.id || (APP.selCurName && APP.selCurName === c.name)) ? 1.5 : .35;
+  return a;
+}
+function emitCurrents(st) {
+  if (P.cur.v < .01) return;
+  const E = st.E, step = st.lowPower ? 2 : 1;
+  for (let i = 0; i < CURP.length; i += step) {
+    const p = CURP[i], c = GEO.CURRENTS[p.c], a = curAlpha(c); if (a < .01) continue;
+    const t = p.t, fade = c.loop ? 1 : Math.min(1, t * 8, (1 - t) * 8);
+    const [la, lo] = curSample(c, t, p.off), [la2, lo2] = curSample(c, t - 2.4 * c.speed / c.len, p.off);
+    const H = M4.xf(E, sph(la, lo, 1.006)), T = M4.xf(E, sph(la2, lo2, 1.006));
+    Sv(H, T, c.warm ? COL.warm : COL.cold, a * fade * .8, .006);
+  }
+  // arrowheads
+  for (const c of GEO.CURRENTS) {
+    const a = curAlpha(c); if (a < .01) continue;
+    const marks = c.loop ? [.12, .37, .62, .87] : [.985];
+    for (const t of marks) {
+      const tt = c.loop ? (t + st.time * .004) % 1 : t;
+      const [la, lo] = curSample(c, tt), [lb, lb2] = curSample(c, tt - 4.5 / c.len);
+      const tip = sph(la, lo, 1.007), back = sph(lb, lb2, 1.007);
+      const dir = V3.norm(V3.sub(tip, back)), nrm = V3.norm(tip), side = V3.norm(V3.cross(nrm, dir));
+      const w1 = V3.add(V3.sub(tip, V3.mul(dir, .045)), V3.mul(side, .03)), w2 = V3.sub(V3.sub(tip, V3.mul(dir, .045)), V3.mul(side, .03));
+      const T = M4.xf(E, tip), col = c.warm ? COL.warm : COL.cold;
+      Sv(T, M4.xf(E, w1), col, a * 1.4, .0085); Sv(T, M4.xf(E, w2), col, a * 1.4, .0085);
+    }
+  }
+}
+/* ---------- sunlight beams (energy imbalance) ---------- */
+function emitBeams(st) {
+  const a = P.beams.v; if (a < .01) return;
+  const Sd = st.sun, E = st.E, ctr = M4.xf(E, [0, 0, 0]), sc = st.earthScale;
+  const u = V3.norm(V3.cross(Sd, [0, 1, 0])), v = [0, 1, 0], r = .13;
+  const lats = [0, APP.beamLat];
+  lats.forEach((phi, bi) => {
+    const P0 = [Math.cos(phi * D2R) * Sd[0], Math.sin(phi * D2R), Math.cos(phi * D2R) * Sd[2]];
+    const hit = (ou, ov) => {
+      const Q = V3.add(P0, V3.add(V3.mul(u, ou), V3.mul(v, ov))), qs = V3.dot(Q, Sd), disc = qs * qs - V3.dot(Q, Q) + 1;
+      if (disc < 0) return null; const t = -qs + Math.sqrt(disc); return V3.add(Q, V3.mul(Sd, t));
+    };
+    const W = p => V3.add(ctr, V3.mul(p, sc));
+    const col = bi === 0 ? [1, .78, .45] : [1, .62, .36];
+    for (let gx = -2; gx <= 2; gx++) for (let gy = -2; gy <= 2; gy++) {
+      const ou = gx / 2 * r, ov = gy / 2 * r; if (ou * ou + ov * ov > r * r * 1.05) continue;
+      const hp = hit(ou, ov); if (!hp) continue;
+      for (let k = 0; k < 3; k++) {
+        const ph = (st.time * .55 + k / 3 + (gx * 7 + gy * 13) * .037) % 1, d = 2.2 * (1 - ph);
+        const H = W(V3.add(hp, V3.mul(Sd, d))), T = W(V3.add(hp, V3.mul(Sd, d + .22)));
+        Sv(H, T, col, a * .55 * Math.min(1, (1 - ph) * 3, ph * 12), .006);
+      }
+      const far = W(V3.add(hp, V3.mul(Sd, 2.6))); Sv(W(hp), far, col, a * .08, .003);
+    }
+    // footprint outline on the surface
+    let prev = null;
+    for (let k = 0; k <= 48; k++) {
+      const th = k / 48 * TAU, hp = hit(Math.cos(th) * r, Math.sin(th) * r); if (!hp) { prev = null; continue; }
+      const w = W(V3.mul(hp, 1.004)); if (prev) Sv(w, prev, [1, .85, .55], a * 1.1, -1.6); prev = w;
+    }
+  });
+}
+function emitSun(st) {
+  const p = V3.mul(st.sun, 24); Sv(p, p, [1, .9, .75], .9, 1.1); Sv(p, p, [1, .7, .45], .25, 4.2);
+}
+/* ---------- tropical Pacific concept model (shared with GLSL) ---------- */
+const PAC = {
+  thermo: (x, k) => lerp(lerp(.62, .13, Math.pow(smooth(0, 1, x), 1.15)), lerp(.47, .37, x), k),
+  sst: (x, k) => lerp(lerp(29.5, 21.5, smooth(.3, 1, x)), lerp(29.2, 25.2, smooth(.5, 1, x)), k),
+  eta: (x, k) => lerp(.10 * (.5 - x), .022 * (.5 - x), k),
+  X: x => -1.5 + 3 * x,
+  surf(x, k) { return .2 + this.eta(x, k); },
+};
+const SLABP = { tr: [], wa: [], up: [], wk: [], cl: [], rn: [] };
+function initSlab() {
+  for (let i = 0; i < 300; i++) SLABP.tr.push({ x: rnd(), y: rr(.27, .45), z: rr(-.32, .34), s: rr(.7, 1.3) });
+  for (let i = 0; i < 420; i++) SLABP.wa.push({ x: rnd(), dz: rnd() < .55 ? 0 : 1, z: rr(-.33, .33), d: rr(.004, .06), s: rr(.7, 1.3) });
+  for (let i = 0; i < 140; i++) SLABP.up.push({ x0: rr(.84, .985), d0: rr(.22, .5), s: rnd(), v: rr(.7, 1.3) });
+  for (let i = 0; i < 520; i++) SLABP.wk.push({ s: rnd(), z: rr(-.3, .3), b: rnd() < .5 ? 0 : 1, v: rr(.8, 1.2), o: rr(-.04, .04) });
+  for (let i = 0; i < 70; i++) SLABP.cl.push({ dx: (rnd() + rnd() + rnd() - 1.5) * .09, y: rr(.76, .98), z: rr(-.32, .32), w: rr(.06, .13), b: rnd() < .55 ? 0 : 1 });
+  for (let i = 0; i < 160; i++) SLABP.rn.push({ dx: (rnd() + rnd() - 1) * .1, z: rr(-.3, .3), s: rnd(), b: rnd() < .55 ? 0 : 1 });
+}
+function walker(k) { // rising / sinking x positions for the main and western loops
+  return { rA: lerp(.13, .56, k), sA: lerp(.87, .95, k), aA: lerp(1, .5, k), rB: .56, sB: .12, aB: k };
+}
+function updateSlab(dt, st) {
+  const k = P.k.v, tw = APP.tradeEff, ts = st.ts;
+  for (const p of SLABP.tr) { p.x -= dt * ts * (.03 + .16 * tw) * p.s; if (p.x < 0) { p.x += 1; p.y = rr(.27, .45); } }
+  const uw = lerp(-.055, .05, k);
+  for (const p of SLABP.wa) { p.x += dt * ts * uw * p.s; if (p.x < 0) p.x += 1; if (p.x > 1) p.x -= 1; }
+  for (const p of SLABP.up) { p.s += dt * ts * .16 * p.v; if (p.s > 1) { p.s = 0; p.x0 = rr(.84, .985); } }
+  for (const p of SLABP.wk) p.s = (p.s + dt * ts * .09 * p.v) % 1;
+  for (const p of SLABP.rn) p.s = (p.s + dt * ts * 1.1) % 1;
+}
+function walkPos(p, w) {
+  const B = p.b === 1, x0 = B ? w.sB : w.rA, x1 = B ? w.rB : w.sA;
+  const th = p.s * TAU * (B ? 1 : -1), xc = (x0 + x1) / 2, ax = (x1 - x0) / 2 * .92;
+  const y0 = .37, y1 = .92, yc = (y0 + y1) / 2, by = (y1 - y0) / 2;
+  return [xc + ax * sgnp(Math.cos(th), .4), yc + by * sgnp(Math.sin(th), .4)];
+}
+function emitSlab(st) {
+  const vis = smooth(.82, 1, P.slab.v) * P.slabParts.v; if (vis < .01) return;
+  const k = P.k.v, tw = APP.tradeEff, E = APP.el, X = PAC.X;
+  // trade winds above the sea
+  if (E.trade > .01) for (const p of SLABP.tr) {
+    const a = vis * E.trade * (.15 + .85 * Math.pow(tw, .8)) * Math.min(1, p.x * 8, (1 - p.x) * 8);
+    const len = .03 + .1 * tw;
+    S(X(p.x), p.y, p.z, X(p.x) + len, p.y, p.z, ...COL.trade, a * .8, .007);
+  }
+  // surface water drift (front face + top)
+  if (E.warm > .01) for (const p of SLABP.wa) {
+    const sy = PAC.surf(p.x, k), t = PAC.sst(p.x, k), wc = mixc(COL.cold, COL.warm, smooth(22, 29, t));
+    const dir = Math.sign(lerp(-1, 1, k) || -1) * .04;
+    const y = p.dz ? sy + .006 : sy - p.d, z = p.dz ? p.z : .372;
+    S(X(p.x), y, z, X(p.x) - dir, y, z, ...wc, vis * E.warm * .55, .006);
+  }
+  // upwelling (east)
+  if (E.up > .01) for (const p of SLABP.up) {
+    const s = p.s, d = p.d0 * (1 - smooth(0, .75, s)), x = p.x0 - Math.pow(Math.max(0, s - .6), 2) * .5;
+    const s2 = Math.max(0, s - .05), d2 = p.d0 * (1 - smooth(0, .75, s2)), x2 = p.x0 - Math.pow(Math.max(0, s2 - .6), 2) * .5;
+    const y = lerp(PAC.surf(x, k), -.6, d) - .006, y2 = lerp(PAC.surf(x2, k), -.6, d2) - .006;
+    S(X(x), y, .374, X(x2), y2, .374, ...COL.cold, vis * E.up * (1 - k) * Math.sin(Math.PI * s) * 1.3, .008);
+  }
+  // Walker circulation
+  const w = walker(k);
+  if (E.walker > .01) for (const p of SLABP.wk) {
+    const aa = p.b ? w.aB : w.aA; if (aa < .02) continue;
+    const [x, y] = walkPos(p, w), q = { s: p.s - .02 * (p.b ? 1 : 1), b: p.b }, [x2, y2] = walkPos(q, w);
+    const dy = (y - y2) * 30; let col = COL.white;
+    if (dy > .04) col = mixc(COL.white, COL.rise, Math.min(1, dy * 2)); else if (dy < -.04) col = mixc(COL.white, COL.sink, Math.min(1, -dy * 2));
+    S(X(x), y + p.o, p.z, X(x2), y2 + p.o, p.z, ...col, vis * E.walker * aa * .8, .0075);
+  }
+  // convective clouds & rain over the rising branch
+  if (E.rise > .01) {
+    for (const c of SLABP.cl) { const x = (c.b ? w.rB : w.rA) + c.dx, a = c.b ? Math.max(k, 1 - k) : 1; const yy = c.y + Math.sin(st.time * .3 + c.z * 9) * .01; S(X(x), yy, c.z, X(x), yy, c.z, .95, .97, 1, vis * E.rise * .10 * a, c.w); }
+    for (const r of SLABP.rn) { const x = w.rA + r.dx; const y = lerp(.76, PAC.surf(x, k) + .01, r.s); S(X(x), y, r.z, X(x), y + .07, r.z, ...COL.rain, vis * E.rise * .45, .0035); }
+  }
+}
+/* ---------- desertification terrain ---------- */
+function hash2(x, y) { let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967295; }
+function vn2(x, y) { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), a = hash2(xi, yi), b = hash2(xi + 1, yi), c = hash2(xi, yi + 1), d = hash2(xi + 1, yi + 1); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+function fbm2(x, y, o = 4) { let s = 0, a = .5; for (let i = 0; i < o; i++) { s += a * vn2(x, y); x = x * 2.03 + 17.1; y = y * 2.03 + 3.7; a *= .5; } return s; }
+const TER = {};
+TER.zr = x => .42 + .16 * Math.sin(x * 1.6 + .5);
+TER.zones = (x, z) => {
+  const n = fbm2(x * 2 + 40, z * 2 + 9, 3);
+  const rm = Math.exp(-Math.pow((z - TER.zr(x)) / .05, 2));
+  const forest = smooth(-.3, -.65, x + (n - .5) * .5) * smooth(-.05, .3, z);
+  let farm = smooth(.18, .32, x) * (1 - smooth(1.25, 1.4, x)) * smooth(-.15, 0, z) * (1 - smooth(1.15, 1.3, z));
+  farm *= 1 - smooth(.15, .5, Math.exp(-Math.pow((z - TER.zr(x)) / .09, 2)));
+  const graze = smooth(-.1, -.3, z) * smooth(-1.25, -1.0, z) * (1 - forest) * (1 - farm);
+  return { forest, farm, graze, river: rm, n };
+};
+TER.h = (x, z) => {
+  let h = (fbm2(x * 1.25 + 5, z * 1.25 + 2, 5) - .5) * .17 + .04;
+  const north = 1 - smooth(-1.5, -.2, z);
+  h += north * .018 * Math.sin(x * 10 + fbm2(x * 3, z * 3) * 5);
+  h -= .055 * Math.exp(-Math.pow((z - TER.zr(x)) / .17, 2));
+  h += .035 * smooth(-.3, -.8, x) * smooth(0, .4, z);
+  return h;
+};
+function buildTerrain() {
+  const N = 150, F = [], G = [], Nn = [], Z = [], Q = [], I = [];
+  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
+    const x = -1.5 + 3 * i / N, z = -1.5 + 3 * j / N, h = TER.h(x, z), e = .01;
+    const nx = TER.h(x - e, z) - TER.h(x + e, z), nz = TER.h(x, z - e) - TER.h(x, z + e), nrm = V3.norm([nx, 2 * e, nz]);
+    const zn = TER.zones(x, z);
+    F.push(x, h, z); Nn.push(...nrm);
+    G.push(...sph(14 - z / 1.5 * 5, 4 + x / 1.5 * 6.5, 1.004 + h * .15));
+    Z.push(zn.forest, zn.farm, zn.graze, zn.river);
+    Q.push(zn.n, fbm2(x * 9 + 3, z * 9 + 1, 3), (z + 1.5) / 3, 0);
+  }
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const a = j * (N + 1) + i, b = a + N + 1; I.push(a, b, a + 1, b, b + 1, a + 1); }
+  R.terrVao = vao([{ buf: buffer(new Float32Array(F)), loc: 0, size: 3 }, { buf: buffer(new Float32Array(G)), loc: 1, size: 3 },
+    { buf: buffer(new Float32Array(Nn)), loc: 2, size: 3 }, { buf: buffer(new Float32Array(Z)), loc: 3, size: 4 }, { buf: buffer(new Float32Array(Q)), loc: 4, size: 4 }],
+    buffer(new Uint32Array(I), gl.ELEMENT_ARRAY_BUFFER));
+  R.terrN = I.length;
+  // props
+  const trees = [], herd = [], houses = [], roofs = [];
+  let tries = 0;
+  while (trees.length < 760 && tries++ < 20000) {
+    const x = rr(-1.45, 1.45), z = rr(-1.45, 1.45), zn = TER.zones(x, z);
+    const isF = zn.forest > .5, sav = !isF && zn.farm < .05 && zn.river < .2 && z > -.7 && rnd() < .05;
+    if (!isF && !sav) continue; if (zn.river > .3) continue;
+    const s = rr(.75, 1.25), th = isF ? rr(.04, .96) : rr(.1, .9);
+    trees.push({ p: [x, TER.h(x, z) - .004, z], s: [.045 * s, .11 * s * (isF ? 1 : .8), .045 * s], c: isF ? [.13, .30, .12] : [.30, .40, .16], q: [th, isF ? 0 : 1, rnd() * 9, 0] });
+  }
+  for (let i = 0; i < 170; i++) {
+    let x, z, k = 0; do { x = rr(-1.2, 1.2); z = rr(-1.05, -.15); k++; } while (TER.zones(x, z).graze < .5 && k < 40);
+    const s = rr(.85, 1.15), c = rnd() < .6 ? [.85, .82, .76] : [.42, .28, .18];
+    herd.push({ p: [x, TER.h(x, z), z], s: [.022 * s, .016 * s, .013 * s], c, q: [i / 170, 2, rnd() * 9, 0] });
+  }
+  for (let i = 0; i < 10; i++) {
+    const x = -.05 + i * .055 + rr(-.02, .02), z = TER.zr(x) - .13 - rr(0, .08), y = TER.h(x, z);
+    houses.push({ p: [x, y - .002, z], s: [.045, .03, .038], c: [.72, .55, .38], q: [0, 3, 0, 0] });
+    roofs.push({ p: [x, y + .028, z], s: [.07, .03, .06], c: [.42, .30, .20], q: [0, 3, 0, 0] });
+  }
+  const cone = meshCone(7, true), box = meshBox(), pyr = meshCone(4, false);
+  R.pTrees = propSet(cone, trees); R.pHerd = propSet(box, herd); R.pHouse = propSet(box, houses); R.pRoof = propSet(pyr, roofs);
+  // Pacific end blocks (Asia–Australia / South America with Andes)
+  R.pLand = propSet(box, [
+    { p: [-1.66, -.6, 0], s: [.32, .9, .72], c: [.14, .28, .14], q: [0, 4, 0, 0] },
+    { p: [1.66, -.6, 0], s: [.32, .93, .72], c: [.50, .39, .27], q: [0, 5, 0, 0] },
+    { p: [1.74, .3, 0], s: [.14, .26, .72], c: [.40, .35, .31], q: [0, 5, 0, 0] },
+  ]);
+}
+const DES = { causes: { circ: false, drought: false, farm: false, graze: false, forest: false } };
+function initDesert() {
+  for (const k of ['grass', 'farm', 'graze', 'forest', 'water']) DES[k] = new Spring(1, 1);
+  DES.sand = new Spring(.12, 1); DES.live = new Spring(.25, 1.2); DES.dust = new Spring(0, 1);
+  DES.dP = []; for (let i = 0; i < 300; i++) DES.dP.push({ x: rr(-1.5, 1.5), z: rr(-1.5, 1.5), y: rr(0, .3), s: rr(.6, 1.4) });
+  DES.rP = []; for (let i = 0; i < 110; i++) DES.rP.push({ x: rr(-1.4, 1.4), z: rr(-1.4, 1.4), s: rnd() });
+  DES.cP = []; for (let i = 0; i < 40; i++) DES.cP.push({ x: rr(-1.5, 1.5), z: rr(-1.4, .6), y: rr(.85, 1.05), w: rr(.12, .22) });
+  DES.aP = []; for (let i = 0; i < 120; i++) DES.aP.push({ x: rr(-1.4, 1.4), z: rr(-1.4, 1), s: rnd() });
+}
+function updateDesert(dt, st) {
+  const c = DES.causes, n = v => v ? 1 : 0;
+  const C = n(c.circ), Dr = n(c.drought), Fa = n(c.farm), Gr = n(c.graze), Fo = n(c.forest);
+  const tgt = {
+    grass: 1 - .42 * C - .5 * Dr - .18 * Gr,
+    farm: 1 - .78 * Fa - .3 * Dr - .15 * C,
+    graze: 1 - .82 * Gr - .3 * Dr - .15 * C,
+    forest: 1 - .9 * Fo - .12 * Dr,
+    water: 1 - .55 * Dr - .3 * C - .15 * Fo,
+  };
+  const deg = 1 - (Math.max(.03, tgt.grass) + Math.max(.03, tgt.farm) + Math.max(.03, tgt.graze) + Math.max(.03, tgt.forest)) / 4;
+  for (const k in tgt) { const sp = DES[k]; const t = clamp(tgt[k], .03, 1); sp.w = t < sp.v ? .55 : .22; sp.t = t; } // recovery is slower than damage
+  DES.sand.t = .12 + .42 * smooth(.12, .75, deg); DES.sand.w = DES.sand.t > DES.sand.v ? .45 : .18;
+  DES.dust.t = smooth(.25, .75, deg); DES.live.t = Gr ? 1 : .25;
+  const k = st.ts > .01 ? 1 : 0;
+  for (const s of ['grass', 'farm', 'graze', 'forest', 'water', 'sand', 'dust', 'live']) DES[s].step(dt * k);
+  DES.dry = clamp(1 - (DES.grass.v * .5 + DES.water.v * .5), 0, 1);
+  for (const p of DES.dP) { p.x += dt * st.ts * .18 * p.s; p.y += dt * st.ts * .03 * p.s; if (p.x > 1.5 || p.y > .5) { p.x = -1.5 + rnd() * .5; p.y = rr(0, .05); p.z = rr(-1.5, 1.5); } }
+  for (const p of DES.rP) p.s = (p.s + dt * st.ts * .9) % 1;
+  for (const p of DES.aP) p.s = (p.s + dt * st.ts * .12) % 1;
+}
+DES.cover = () => (DES.grass.v + DES.farm.v + DES.graze.v + DES.forest.v) / 4;
+function emitDesert(st) {
+  const vis = smooth(.8, 1, P.terr.v); if (vis < .01) return;
+  const c = DES.causes;
+  const dust = DES.dust.v * vis;
+  if (dust > .01) for (const p of DES.dP) { const y = TER.h(p.x, p.z) + p.y; S(p.x, y, p.z, p.x - .06, y - .006, p.z, .85, .64, .40, dust * .16, .028); }
+  const rain = clamp(DES.water.v * (c.drought ? 0 : 1) * (c.circ ? .3 : 1), 0, 1) * vis * P.terrRain.v;
+  if (rain > .01) {
+    for (const p of DES.rP) { const y = lerp(.85, TER.h(p.x, p.z), p.s); S(p.x, y, p.z, p.x, y + .06, p.z, ...COL.rain, rain * .22, .0028); }
+  }
+  if (c.circ) for (const p of DES.aP) { const y = lerp(1.0, TER.h(p.x, p.z) + .15, p.s); S(p.x, y, p.z, p.x, y + .07, p.z, ...COL.gold, vis * .45 * Math.sin(Math.PI * p.s), .006); }
+}
+/* ---------- future: tropical storm swirls ---------- */
+const STORMS = [[16, 136], [18, -58], [14, -112], [-15, 68], [-17, 158], [20, 88]];
+const STP = []; (function () { for (let i = 0; i < STORMS.length * 120; i++) { const r = Math.pow(rnd(), .8) * 6 + .4; STP.push({ st: i % STORMS.length, r, a: (i % 3) * TAU / 3 + r * .55 + rr(-.25, .25), s: rr(.85, 1.15) }); } })();
+function emitStorms(st) {
+  const f = P.storms.v; if (f < .02) return;
+  const nAct = f * STORMS.length;
+  for (const p of STP) {
+    if (p.st >= nAct + .999) continue; const al = Math.min(1, nAct - p.st + 1) * f;
+    const [la0, lo0] = STORMS[p.st], dir = la0 > 0 ? 1 : -1, w = dir * 1.6 / (p.r + .6);
+    const ang = p.a * dir + st.time * w * p.s, ang2 = ang - w * .35;
+    const r2 = p.r * 1.02, pos = (an, r) => sph(la0 + Math.sin(an) * r, lo0 + Math.cos(an) * r / Math.cos(la0 * D2R), 1.013);
+    Sv(M4.xf(st.E, pos(ang, p.r)), M4.xf(st.E, pos(ang2, r2)), [.95, .97, 1], al * .38 * (1 - p.r / 7), .011);
+  }
+}
+
+function emitRing(st) {
+  const a = P.ring.v; if (a < .01) return;
+  let prev = null;
+  for (let k = 0; k <= 160; k++) {
+    const t = k / 160 * TAU, p = [Math.cos(t) * 1.62, Math.sin(t * 2) * .02, Math.sin(t) * 1.62];
+    if (prev && k % 2) Sv(p, prev, [.55, .8, 1], a * .35, -1.2); prev = p;
+  }
+}
+/* =====================================================================
+   Scenes (18) — content, camera, parameters, interaction
+   ===================================================================== */
+const CH = [
+  { n: 'CHAPTER 01', en: 'THE ATMOSPHERE', ko: '지구를 감싸는 거대한 순환' },
+  { n: 'CHAPTER 02', en: 'OCEAN CURRENTS', ko: '바다는 바람을 기억한다' },
+  { n: 'CHAPTER 03', en: 'EL NIÑO', ko: '태평양이 달라지는 순간' },
+  { n: 'CHAPTER 04', en: 'DESERTIFICATION', ko: '녹색의 땅이 황폐해지는 과정' },
+  { n: 'CHAPTER 05', en: 'THE FUTURE OF EARTH', ko: '우리가 살아갈 지구' },
+];
+const SLABCAM = { az: 0, el: .3, dist: 6.1, look: [0, .36, 0], fov: 34, shift: .15 };
+const TERRCAM = { az: 0, el: .6, dist: 4.9, look: [0, -.02, .1], fov: 36, shift: .2 };
+const WIND_INFO = [
+  { name: '무역풍', range: '위도 0° ~ 30°', tag: '저위도 · 편동풍', body: '아열대 고압대(30°)에서 적도 저압대(0°)로 향하는 바람이 전향력을 받아 동쪽에서 서쪽으로 분다. 북반구는 북동 무역풍, 남반구는 남동 무역풍. 해들리 순환의 지표 부분이다.' },
+  { name: '편서풍', range: '위도 30° ~ 60°', tag: '중위도 · 편서풍', body: '아열대 고압대에서 한대 전선대(60°)로 향하는 바람이 전향력을 받아 서쪽에서 동쪽으로 분다. 페렐 순환의 지표 부분이다.' },
+  { name: '극동풍', range: '위도 60° ~ 90°', tag: '고위도 · 편동풍', body: '극 고압대에서 60° 부근으로 향하는 바람이 전향력을 받아 동쪽에서 서쪽으로 분다. 극순환의 지표 부분이다.' },
+];
+const CELL_INFO = [
+  '적도에서 가열된 공기가 상승해 고위도로 이동하다가 위도 30° 부근에서 하강하여 지표를 따라 적도로 돌아온다. 열에 의해 직접 만들어지는 직접 순환이며, 지표에서는 무역풍이 분다.',
+  '30°에서 하강한 공기의 일부가 지표를 따라 고위도로 이동해 60° 부근에서 상승한다. 해들리 순환과 극순환 사이에서 두 순환에 의해 간접적으로 만들어지는 간접 순환이며, 지표에서는 편서풍이 분다.',
+  '극지방에서 냉각된 공기가 하강해 지표를 따라 저위도로 이동하다가 60° 부근에서 상승한다. 직접 순환이며, 지표에서는 극동풍이 분다.',
+];
+const MEASURES = [
+  { id: 'bus', name: '대중교통 이용', lvl: '개인', type: '완화', body: '자가용 이용을 줄이면 화석 연료 연소로 배출되는 이산화 탄소가 줄어든다. 온실 기체 배출 감소 → 기후 변화 완화.' },
+  { id: 'save', name: '에너지 절약', lvl: '개인 · 가정', type: '완화', body: '전기·난방 에너지 사용을 줄이면 발전 과정에서 배출되는 온실 기체가 줄어든다. 가장 쉽게 실천할 수 있는 감축 방법.' },
+  { id: 'eco', name: '친환경 제품 구매', lvl: '개인 · 소비', type: '완화', body: '생산·사용·폐기 과정의 탄소 배출이 적은 제품을 선택하면 배출을 줄이고, 기업의 친환경 생산을 유도할 수 있다.' },
+  { id: 'ccs', name: '탄소 저감 기술 개발', lvl: '사회 · 과학 기술', type: '완화', body: '배출되는 이산화 탄소를 포집·저장하거나 배출 자체를 줄이는 기술. 산업 부문의 대규모 배출을 줄이는 데 도움이 된다.' },
+  { id: 'renew', name: '지속 가능한 에너지 기술 개발', lvl: '사회 · 과학 기술', type: '완화', body: '태양광·풍력 등 재생 에너지 기술을 발전시켜 화석 연료 의존도를 낮춘다. 에너지 생산 과정의 온실 기체 배출 감소.' },
+  { id: 'intl', name: '국가 간 협약 및 협력', lvl: '국가 · 국제', type: '완화 + 적응', body: '기후 변화는 국경을 넘는 문제이므로 공동의 감축 목표(예: 파리 협정)를 세우고, 기술·재정 지원으로 피해에 취약한 지역의 적응을 돕는다.' },
+];
+const RISKS = [
+  { name: '생물 다양성 감소', note: '서식 환경 변화로 일부 생물종 감소 위험' },
+  { name: '물 부족', note: '강수 패턴 변화, 가뭄 증가 지역의 물 부족' },
+  { name: '식량난', note: '기온·강수 변화에 따른 작물 생산 감소 위험' },
+  { name: '기상 재해 위험 증가', note: '폭염·폭우·가뭄 등 극한 기상 위험 증가' },
+  { name: '감염병 관련 위험 변화', note: '매개 생물의 분포 변화 등으로 위험이 달라질 수 있음' },
+];
+
+const SC = [
+/* ======================= CHAPTER 01 ======================= */
+{ ch: 0, key: 'living', name: '살아 있는 지구', layout: 'center',
+  title: '지구는 끊임없이 움직인다.', sub: '대기와 바다는 멈추지 않고 흐르며\n지구 전체에 에너지를 나눈다.',
+  cam: { az: -.42, el: .2, dist: 5.8, fov: 34, shift: 0, look: [0, -.34, 0] }, earth: { spin: .07 },
+  p: { clouds: .95, ambient: .03 },
+  update(a, t) { if (t > 1.8) C.dist.t = 5.3; },
+  concept: { def: '이 프로그램은 태양 에너지에서 시작해 대기와 해양, 엘니뇨, 사막화, 기후 변화와 대책까지 하나의 흐름으로 연결합니다.',
+    how: '태양 에너지의 위도별 차이 → 대기 대순환 → 지표의 바람 → 표층 해류 → 해양과 대기의 상호 작용(엘니뇨) → 건조 지역과 사막화 → 기후 변화와 대책',
+    feat: '지구를 손가락으로 끌어 돌려 보세요. 화면 오른쪽을 터치하면 다음 장면, 왼쪽을 터치하면 이전 장면으로 이어집니다.',
+    memo: '지구의 대기와 해양은 서로 연결되어 에너지를 운반한다.' } },
+{ ch: 0, key: 'energy', name: '에너지 불균형',
+  title: '에너지 불균형', sub: '태양 에너지가 불균형하게 도달할 때,\n지구의 대기는 거대한 순환을 시작한다.',
+  memo: '대기 대순환의 근본적인 원인은 <span class="kw">위도에 따른 태양 복사 에너지의 불균형</span>이다.',
+  cam: { az: .44, el: .12, dist: 4.7, fov: 34, shift: .2 }, earth: { lon: -10 },
+  p: { temp: 1, beams: 1, ambient: .45, clouds: 0, grid: .55 },
+  panel: 'energy',
+  labels: () => [
+    { id: 'eq', text: '저위도', sub: '좁은 면적에 에너지 집중', cls: 'warm', w: () => beamHit(0), vis: () => P.beams.v },
+    { id: 'hl', text: '고위도', sub: '같은 에너지가 넓은 면적에 분산', cls: 'cold', w: () => beamHit(APP.beamLat), vis: () => P.beams.v },
+  ],
+  concept: { def: '위도에 따라 지표면이 단위 면적당 받는 태양 복사 에너지의 양이 다르다.',
+    how: '저위도는 태양빛이 거의 수직으로 비쳐 좁은 면적에 에너지가 집중되고, 고위도는 비스듬히 비쳐 같은 양의 에너지가 넓은 면적에 퍼진다.',
+    feat: '저위도는 에너지 과잉, 고위도는 에너지 부족 상태가 된다. 대기와 해수의 순환이 남는 에너지를 고위도로 운반한다.',
+    memo: '대기 대순환의 근본적인 원인 = 위도에 따른 태양 복사 에너지의 불균형' } },
+{ ch: 0, key: 'cells', name: '대기 대순환', memoSeq: 'cells',
+  title: '대기 대순환', sub: '적도에서 데워진 공기는 상승하고,\n고위도로 이동하며 세 개의 순환을 만든다.',
+  cam: { az: 0, el: .05, dist: 5.3, fov: 34, shift: .17 }, earth: { lon: 15 },
+  p: { air: 1, windMorph: 0, grid: .75, ambient: .2, clouds: .3 },
+  panel: 'cells',
+  labels: () => [
+    ...CELLS.map((c, i) => ({ id: 'cn' + i, text: c.name, sub: c.range, cls: 'big tap', limb: 1, gf: [(c.lat0 + c.lat1) / 2, 90, c.h * 1.05], tap: () => pickCell(i), vis: () => P.air.v * (APP.hiCell < 0 || APP.hiCell === i ? 1 : .35) })),
+    ...CELLS.map((c, i) => ({ id: 'cs' + i, text: c.name, cls: 'tap', limb: 1, gf: [-(c.lat0 + c.lat1) / 2, 90, c.h * 1.05], tap: () => pickCell(i), vis: () => P.air.v * .7 * (APP.hiCell < 0 || APP.hiCell === i ? 1 : .35) })),
+    { id: 'l0', limb: 1, text: '0° 상승', cls: 'plain l', gf: [0, -90, .24] }, { id: 'l30', limb: 1, text: '30°N 하강', cls: 'plain l', gf: [30, -90, .24] },
+    { id: 'l60', limb: 1, text: '60°N 상승', cls: 'plain l', gf: [60, -90, .17] }, { id: 'l90', limb: 1, text: '90°N 하강', cls: 'plain l', gf: [86, -90, .14] },
+    { id: 'm30', limb: 1, text: '30°S', cls: 'plain l', gf: [-30, -90, .24] }, { id: 'm60', limb: 1, text: '60°S', cls: 'plain l', gf: [-60, -90, .17] },
+  ],
+  concept: { def: '지구 전체 규모로 일어나는 대기의 순환. 북반구와 남반구에 각각 세 개의 순환 세포가 있다.',
+    how: '적도에서 가열된 공기 상승 → 고위도로 이동 → 30° 부근에서 하강, 60° 부근에서 상승, 극에서 하강. 지구 자전의 영향으로 순환이 세 개로 나뉜다.',
+    feat: '해들리 순환·극순환: 열에 의해 직접 만들어지는 직접 순환\n페렐 순환: 두 순환 사이에서 만들어지는 간접 순환',
+    memo: '해들리 순환 0~30° · 페렐 순환 30~60° · 극순환 60~90°' } },
+{ ch: 0, key: 'winds', name: '바람과 기압대', memoSeq: 'winds', review: 0,
+  title: '바람과 기압대', sub: '순환의 아랫부분이 지표의 바람이 되고,\n지구 자전에 의한 전향력이 방향을 휘게 한다.',
+  cam: { az: 0, el: .3, dist: 4.5, fov: 34, shift: .2 }, earth: { lon: -35 },
+  p: { air: 1, windMorph: 1, pressure: 1, ambient: .22, clouds: .25, grid: .3 },
+  panel: 'winds',
+  labels: () => [
+    ...WIND_INFO.map((w, i) => ({ id: 'w' + i, text: w.name, sub: w.range, cls: 'big tap', gf: [15 + 30 * i, 28, .02], tap: () => pickBelt(i), vis: () => P.air.v * (APP.hiBelt < 0 || APP.hiBelt === i ? 1 : .35) })),
+    { id: 'p0', text: '적도 저압대', sub: '상승 기류', cls: 'l cold', gf: [0, -42, .01], vis: () => P.pressure.v },
+    { id: 'p30', text: '아열대 고압대', sub: '하강 기류', cls: 'l gold', gf: [30, -40, .01], vis: () => P.pressure.v },
+    { id: 'p60', text: '한대 전선대', sub: '상승 기류', cls: 'l cold', gf: [60, -38, .01], vis: () => P.pressure.v },
+    { id: 'p90', text: '극 고압대', cls: 'l gold', gf: [84, -30, .01], vis: () => P.pressure.v },
+  ],
+  concept: { def: '대기 대순환의 지표 부근 흐름이 위도대별로 일정한 방향의 바람(무역풍·편서풍·극동풍)을 만든다.',
+    how: '공기는 고압대에서 저압대로 이동하고, 지구 자전에 의한 전향력으로 북반구에서는 오른쪽, 남반구에서는 왼쪽으로 휜다.',
+    feat: '저압대(상승 기류): 적도 저압대, 한대 전선대\n고압대(하강 기류): 아열대 고압대, 극 고압대',
+    memo: '무역풍: 저위도의 편동풍 · 편서풍: 중위도의 편서풍 · 극동풍: 고위도의 편동풍' } },
+/* ======================= CHAPTER 02 ======================= */
+{ ch: 1, key: 'wind2current', name: '바람이 해류가 되는 순간',
+  title: '바람이 해류가 되는 순간', sub: '오랫동안 같은 방향으로 부는 바람이\n바다의 표면을 밀어 거대한 흐름을 만든다.',
+  memo: '표층 해류는 주로 <span class="kw">지속적으로 부는 바람</span>의 영향을 받아 발생한다.',
+  cam: { az: 0, el: .43, dist: 3.55, fov: 34, shift: .24 }, earth: { lon: -168 },
+  p: { air: .45, windMorph: 1, beltA2: 0, cur: 1, curOther: 0, ambient: .2, clouds: .2 },
+  enter() { P.curSpeed.snap(0); P.curSpeed.t = 1; P.curSpeed.w = .7; },
+  exit() { P.curSpeed.w = 2; },
+  labels: () => [
+    { id: 'tw', text: '무역풍 → 북적도 해류', sub: '동쪽 → 서쪽', cls: 'cold', g: [11, -160, .02] },
+    { id: 'ww', text: '편서풍 → 북태평양 해류', sub: '서쪽 → 동쪽', cls: 'warm', g: [44, -165, .02] },
+    { id: 'ku', text: '쿠로시오 해류', sub: '대륙에 막혀 북쪽으로 · 난류', cls: 'warm l', g: [29, 128, .01] },
+    { id: 'ca', text: '캘리포니아 해류', sub: '남쪽으로 · 한류', cls: 'cold', g: [31, -122, .01] },
+  ],
+  concept: { def: '표층 해류: 바다 표면 부근에서 일정한 방향으로 흐르는 해수의 흐름.',
+    how: '지속적으로 부는 바람이 해수면과의 마찰로 표층 해수를 이동시키고, 대륙에 막히면 흐름이 남북 방향으로 바뀐다.',
+    feat: '무역풍 → 북적도 해류(동→서) · 편서풍 → 북태평양 해류(서→동). 이들이 이어져 북태평양에서 시계 방향의 큰 순환을 이룬다.',
+    memo: '표층 해류는 주로 지속적으로 부는 바람의 영향을 받아 발생한다.' } },
+{ ch: 1, key: 'currents', name: '세계의 표층 해류',
+  title: '세계의 표층 해류', sub: '난류는 따뜻한 해수를 고위도로,\n한류는 차가운 해수를 저위도로 운반한다.',
+  cam: { az: 0, el: .18, dist: 4.3, fov: 34, shift: .2 }, earth: { lon: -55 },
+  p: { cur: 1, curOther: 1, ambient: .25, clouds: .25 },
+  panel: 'currents',
+  labels: () => GEO.CURRENTS.filter(c => !c.ref).map(c => ({ id: 'c' + c.id, text: c.name, cls: (c.warm ? 'warm' : 'cold') + ' tap', g: [c.mid[0], c.mid[1], .012], tap: () => pickCurrent(c) })),
+  concept: { def: '난류: 저위도에서 고위도로 흐르는 따뜻한 해류\n한류: 고위도에서 저위도로 흐르는 차가운 해류',
+    how: '대양의 서쪽 가장자리에는 고위도로 향하는 난류가, 동쪽 가장자리에는 저위도로 향하는 한류가 주로 흐른다.',
+    feat: '아열대 해역의 표층 순환은 북반구에서 시계 방향, 남반구에서 시계 반대 방향으로 돈다.',
+    memo: '난류: 쿠로시오 · 멕시코 만류 · 북대서양 · 브라질 · 북적도\n한류: 캘리포니아 · 카나리아 · 페루' } },
+{ ch: 1, key: 'heat', name: '해양의 열 수송', review: 1,
+  title: '해양의 열 수송', sub: '해류는 저위도의 남는 열을 고위도로 옮겨\n지구의 열 균형과 기후에 영향을 준다.',
+  cam: { az: 0, el: .55, dist: 3.9, fov: 34, shift: .2 }, earth: { lon: -32 },
+  p: { sst: 1, cur: 1, curOther: 1, ambient: .45, clouds: 0 },
+  panel: 'heat',
+  labels: () => [
+    { id: 'we', text: '서유럽', sub: '북대서양 해류 · 위도에 비해 온화', cls: 'warm', g: [51, 3, .01] },
+    { id: 'lo', text: '저위도 · 열 과잉', cls: 'warm l', g: [8, -40, .01] },
+    { id: 'hi', text: '고위도 · 열 부족', cls: 'cold l', g: [63, -45, .01] },
+  ],
+  concept: { def: '해류는 저위도의 남는 열에너지를 고위도로 운반한다.',
+    how: '난류는 주변 지역의 기온을 높이고, 한류는 낮춘다. 해류는 대기와 함께 위도 간 에너지 불균형을 줄인다.',
+    feat: '북대서양 해류의 영향으로 서유럽은 같은 위도의 다른 지역보다 겨울이 온화하다.',
+    memo: '대기 대순환 + 해류 → 저위도의 열을 고위도로 수송 → 위도 간 에너지 불균형 완화' } },
+/* ======================= CHAPTER 03 ======================= */
+{ ch: 2, key: 'normal', name: '평상시 태평양', layout: 'top',
+  title: '평상시 태평양', sub: '무역풍이 따뜻한 표층수를 서쪽으로 밀어 보낸다.',
+  cam: SLABCAM, earth: { lon: -160 }, slab: true,
+  p: { slab: 1, k: 0, ambient: .3, clouds: .5 },
+  enter() { revealElements(); },
+  panel: 'normal',
+  labels: () => slabLabels(),
+  concept: { def: '평상시 적도 부근 태평양에서는 무역풍이 동쪽에서 서쪽으로 지속적으로 분다.',
+    how: '무역풍 → 따뜻한 표층수가 서태평양에 쌓임(해수면이 높고 수온약층이 깊음) · 동태평양은 용승으로 차가운 해수가 올라옴(수온약층이 얕음)',
+    feat: '서태평양: 상승 기류, 많은 강수 · 동태평양: 하강 기류, 건조 → 동서 방향의 워커 순환',
+    memo: '평상시: 서태평양 따뜻·강수 많음 / 동태평양 차가움·건조 · 페루 연안 용승 활발' } },
+{ ch: 2, key: 'onset', name: '엘니뇨의 시작', layout: 'top',
+  title: '엘니뇨의 시작', sub: '무역풍이 약해지면 태평양 전체가 달라진다.',
+  cam: { ...SLABCAM, el: .27, az: -.05 }, earth: { lon: -160 }, slab: true,
+  p: { slab: 1, ambient: .3, clouds: .5 },
+  enter() { APP.trade = 1; P.k.t = 0; },
+  update() { P.k.t = clamp((1 - APP.trade) / .62, 0, 1); },
+  panel: 'onset',
+  labels: () => slabLabels(),
+  concept: { def: '엘니뇨는 무역풍이 평상시보다 약해지면서 시작된다.',
+    how: '무역풍 약화 → 서쪽에 쌓였던 따뜻한 표층수가 동쪽으로 확장 → 동태평양 표층 수온 상승 → 용승 약화',
+    feat: '동태평양의 수온약층이 깊어지고, 상승 기류가 나타나는 위치가 중·동부 태평양 쪽으로 이동한다.',
+    memo: '무역풍 약화 → 따뜻한 표층수 동쪽 확장 → 동태평양 표층 수온 상승 → 용승 약화' } },
+{ ch: 2, key: 'definition', name: '엘니뇨의 정의', layout: 'def',
+  title: '엘니뇨', sub: '',
+  cam: { ...SLABCAM, el: .16, dist: 6.3, look: [0, .95, 0], shift: 0 }, earth: { lon: -160 }, slab: true,
+  p: { slab: 1, k: 1, slabParts: .55, ambient: .3, clouds: .5 },
+  update(a, t) { C.az.t = Math.sin(t * .18) * .14; },
+  labels: () => [],
+  concept: { def: '엘니뇨: 적도 부근 태평양 중부와 동부의 표층 수온이 평년보다 비정상적으로 높은 상태가 지속되는 현상',
+    how: '무역풍이 약해져 따뜻한 표층수가 동쪽으로 이동하고 용승이 약해지기 때문에 나타난다.',
+    feat: '짧은 변화가 아니라 수개월 이상 지속되는 현상이다.',
+    memo: '키워드 4개: 적도 부근 태평양 · 중부와 동부 · 표층 수온 상승 · 지속' } },
+{ ch: 2, key: 'impact', name: '엘니뇨의 영향',
+  title: '엘니뇨의 영향', sub: '상승 기류의 위치가 바뀌면\n비가 내리는 곳도 함께 달라진다.',
+  cam: { az: 0, el: .04, dist: 4.25, fov: 34, shift: .24 }, earth: { lon: -172 },
+  p: { ensoVis: 1, ambient: .45, clouds: 0 },
+  enter() { APP.cmpK = 1; },
+  update() { P.ensoK.t = APP.cmpK; },
+  panel: 'impact',
+  labels: () => [
+    { id: 'r1', text: '강수 증가 경향', sub: '열대 태평양 중·동부', cls: 'cold', g: [2, -130, .03], vis: () => P.ensoK.v },
+    { id: 'r2', text: '강수 감소 · 가뭄 경향', sub: '인도네시아 · 오스트레일리아 동부 등', cls: 'gold l', g: [-12, 128, .02], vis: () => P.ensoK.v },
+    { id: 'r3', text: '용승 약화', sub: '페루 연안 · 어획량 감소 경향', cls: 'warm', g: [-10, -82, .02], vis: () => P.ensoK.v },
+    { id: 'n1', text: '평상시 · 강수 집중', sub: '서태평양', cls: 'cold l', g: [2, 140, .03], vis: () => 1 - P.ensoK.v },
+    { id: 'n2', text: '평상시 · 차갑고 건조', sub: '동태평양 · 페루 연안 용승', cls: 'cold', g: [-6, -95, .02], vis: () => 1 - P.ensoK.v },
+  ],
+  concept: { def: '엘니뇨는 대기 순환을 변화시켜 강수 분포와 세계 여러 지역의 기후에 영향을 준다.',
+    how: '상승 기류가 중·동부 태평양으로 이동 → 그 지역의 강수 증가 경향 / 서태평양에는 하강 기류가 나타나 강수 감소 경향',
+    feat: '페루 연안: 용승 약화로 영양염이 줄어 어획량 감소 경향\n인도네시아·오스트레일리아 동부: 가뭄·산불 위험 증가 경향',
+    memo: '영향이 나타나는 지역과 정도는 엘니뇨의 강도와 시기, 계절에 따라 달라진다.' } },
+{ ch: 2, key: 'master', name: '엘니뇨 완전 이해', layout: 'top', review: 2,
+  title: '엘니뇨 완전 이해', sub: '같은 태평양, 두 가지 상태.',
+  cam: { ...SLABCAM, el: .33, dist: 6.6 }, earth: { lon: -160 }, slab: true,
+  p: { slab: 1, ambient: .3, clouds: .5 },
+  enter() { APP.cmpK = 0; },
+  update() { P.k.t = APP.cmpK; },
+  panel: 'master',
+  labels: () => slabLabels(),
+  concept: { def: 'NORMAL과 EL NIÑO의 차이는 무역풍의 세기에서 시작된다.',
+    how: '무역풍 약화 → 따뜻한 표층수 동쪽 확장 → 동태평양 수온 상승·용승 약화 → 상승 기류 위치 이동 → 강수 분포 변화',
+    feat: '평상시: 서태평양 해수면 높음·수온약층 깊음 / 동태평양 수온약층 얕음\n엘니뇨: 동서 해수면·수온약층 차이 감소',
+    memo: '엘니뇨 = 무역풍 약화 · 동태평양 수온↑ · 용승↓ · 서태평양 강수↓ · 중·동태평양 강수↑' } },
+/* ======================= CHAPTER 04 ======================= */
+{ ch: 3, key: 'deserts', name: '사막의 분포',
+  title: '사막의 분포', sub: '위도 30° 부근, 하강하는 공기 아래에서\n구름은 쉽게 만들어지지 않는다.',
+  cam: { az: 0, el: .1, dist: 4.6, fov: 34, shift: .2 }, earth: { lon: 72 },
+  p: { desert: 1, air: .9, windMorph: 0, cellA1: 0, cellA2: 0, ambient: .32, clouds: .25, grid: .35 },
+  enter() { later(2600, () => { P.sahel.t = 1; }); },
+  panel: 'deserts',
+  labels: () => [
+    { id: 'sa', text: '사하라 사막', cls: 'gold big', g: [23, 12, .01] },
+    { id: 'ar', text: '아라비아 사막', cls: 'gold', g: [22, 46, .01] },
+    { id: 'gv', text: '그레이트빅토리아 사막', cls: 'gold', g: [-28.5, 127, .01] },
+    { id: 'st', text: '아열대 고압대 · 하강 기류', sub: '구름이 생기기 어려움 → 건조', cls: 'gold', g: [30, 88, .05] },
+    { id: 'sh', text: '사헬 지대', sub: '사막 주변에서 사막화가 진행되는 지역', cls: 'warm l', g: [14, 2, .01], vis: () => P.sahel.v },
+  ],
+  concept: { def: '사막: 강수량이 매우 적어 식생이 거의 자라지 못하는 건조 지역',
+    how: '위도 30° 부근 아열대 고압대에서는 하강 기류가 발달하여 구름이 생기기 어렵고 강수량이 적다.',
+    feat: '사하라 사막, 아라비아 사막, 그레이트빅토리아 사막 등이 이 위도대에 분포한다.',
+    memo: '자연적으로 형성된 사막 ≠ 사막화\n사막화: 사막 주변 지역이 점차 사막처럼 황폐해지는 현상 (예: 사헬 지대)' } },
+{ ch: 3, key: 'causes', name: '사막화의 원인', layout: 'top',
+  title: '사막화의 원인', sub: '원인을 하나씩 켜고, 땅이 변하는 과정을 지켜보세요.',
+  cam: TERRCAM, earth: { lon: 4 }, terr: true,
+  p: { terr: 1, ambient: .3, clouds: 0 },
+  panel: 'causes',
+  labels: () => terrLabels(),
+  concept: { def: '사막화: 기존의 토지가 점차 사막처럼 황폐해지는 현상',
+    how: '자연적 원인: 대기 대순환의 변화, 가뭄과 강수량 감소\n인위적 원인: 과잉 경작, 과잉 방목, 무분별한 산림 파괴',
+    feat: '식생이 사라지면 토양이 드러나 침식과 건조가 빨라지고, 회복에는 훨씬 오랜 시간이 걸린다.',
+    memo: '자연적 원인 2가지 + 인위적 원인 3가지를 구분해서 기억하기' } },
+{ ch: 3, key: 'dimpact', name: '사막화의 영향', layout: 'top', review: 3,
+  title: '사막화의 영향', sub: '황폐해진 땅은 그 위의 삶을 함께 바꾼다.',
+  cam: { ...TERRCAM, el: .44, dist: 3.9 }, earth: { lon: 4 }, terr: true,
+  p: { terr: 1, ambient: .3, clouds: 0, terrRain: 0 },
+  enter() {
+    const c = DES.causes; if (!Object.values(c).some(Boolean)) { c.drought = c.farm = c.graze = c.forest = true; }
+    APP.impactN = 0; for (let i = 1; i <= 5; i++) later(700 + i * 1100, () => { APP.impactN = i; refreshPanel(); });
+  },
+  update(a, t) { C.az.t = Math.sin(t * .16) * .55; },
+  panel: 'dimpact',
+  labels: () => [
+    { id: 'i1', text: '농경지 감소', cls: 'warm', f: [.8, .05, .5], need: 'terr', vis: () => +(APP.impactN >= 1) },
+    { id: 'i2', text: '작물 수확량 감소', cls: 'warm', f: [1.05, .05, .15], need: 'terr', vis: () => +(APP.impactN >= 2) },
+    { id: 'i3', text: '식량 부족', cls: 'warm l', f: [.1, .08, TER.zr(.1) - .2], need: 'terr', vis: () => +(APP.impactN >= 3) },
+    { id: 'i4', text: '물 부족', sub: '하천·지하수 감소', cls: 'cold l', f: [-.55, .02, TER.zr(-.55)], need: 'terr', vis: () => +(APP.impactN >= 4) },
+    { id: 'i5', text: '황사 발생 빈도 증가 가능성', cls: 'gold', f: [.2, .35, -1.0], need: 'terr', vis: () => +(APP.impactN >= 5) },
+  ],
+  concept: { def: '사막화는 토지와 물, 식량, 대기 환경에 영향을 준다.',
+    how: '농경지 감소 → 작물 수확량 감소 → 식량 부족 · 물 부족 · 황사 발생 빈도 증가 가능성',
+    feat: '사막화의 영향은 해당 지역뿐 아니라 황사처럼 주변 지역의 환경과 생활에도 미칠 수 있다.',
+    memo: '사막화 → 농경지·수확량 감소 → 식량 부족 / 물 부족 / 황사 증가 가능성' } },
+/* ======================= CHAPTER 05 ======================= */
+{ ch: 4, key: 'future', name: '기후 변화의 미래',
+  title: '기후 변화의 미래', sub: '온실 기체 배출이 계속 늘어난다면,\n지구는 어떤 모습이 될 수 있을까.',
+  cam: { az: .5, el: .22, dist: 4.4, fov: 34, shift: .2 }, earth: { spin: .05 },
+  p: { ambient: .28, clouds: .7 },
+  enter() { if (APP.emis == null) APP.emis = .75; },
+  update() { P.future.t = APP.emis; P.storms.t = smooth(.35, 1, APP.emis); },
+  panel: 'future',
+  concept: { def: '온실 기체 배출량이 계속 증가하면 기후 변화가 심해져 여러 위험이 커질 수 있다.',
+    how: '지구 평균 기온 상승 → 생태계, 물 순환, 농업, 기상 현상에 영향',
+    feat: '생물 다양성 감소 · 물 부족 · 식량난 · 기상 재해 위험 증가 · 감염병 관련 위험 변화',
+    memo: '기후 변화의 영향은 지역마다 다르게 나타나며, 미래 예측에는 불확실성이 있다.' } },
+{ ch: 4, key: 'measures', name: '지구 환경 변화 대책',
+  title: '지구 환경 변화 대책', sub: '지구를 둘러싼 대책을 하나씩 선택해 보세요.',
+  cam: { az: .35, el: .3, dist: 5.4, fov: 34, shift: .16 }, earth: { spin: .04 },
+  p: { ambient: .3, clouds: .7, ring: 1 },
+  enter() { APP.measSel = APP.measSel || new Set(); },
+  update() { const n = APP.measSel.size; P.future.t = Math.max(.08, .62 - n * .09); P.storms.t = Math.max(0, .4 - n * .07); },
+  labels: () => MEASURES.map((m, i) => ({ id: 'ms' + i, text: m.name, sub: m.lvl, cls: 'big tap meas', w: () => measurePos(i), tap: () => pickMeasure(i), vis: () => .35 + .65 * measureFront(i), sel: () => APP.measSel.has(m.id) })),
+  concept: { def: '지구 환경 변화에 대한 대책은 개인·사회·국가와 국제 수준에서 함께 이루어져야 한다.',
+    how: '완화: 온실 기체 배출을 줄이는 노력\n적응: 이미 나타나거나 앞으로 나타날 변화에 대비하는 노력',
+    feat: '개인: 대중교통 이용, 에너지 절약, 친환경 제품 구매\n사회: 탄소 저감 기술·지속 가능한 에너지 기술 개발\n국가: 국가 간 협약 및 협력',
+    memo: '개인의 실천 + 과학 기술 개발 + 국제 협력' } },
+{ ch: 4, key: 'unified', name: '하나로 연결된 지구', review: 4,
+  title: '하나로 연결된 지구', sub: '모든 흐름은 하나의 지구 위에서 이어진다.',
+  cam: { az: .45, el: .18, dist: 5.6, fov: 34, shift: -.14, look: [0, -.42, 0] }, earth: { spin: .045 },
+  p: { air: .5, windMorph: 1, cur: .9, curOther: 1, ensoVis: .9, ensoK: 1, desert: .55, future: .18, ambient: .25, clouds: .35 },
+  enter() { later(3200, () => showFinal()); },
+  panel: 'unified',
+  concept: { def: '대기 대순환 → 바람 → 표층 해류 → 해양과 대기의 상호 작용은 하나로 연결되어 있다.',
+    how: '무역풍 약화 → 엘니뇨 → 강수 분포 변화 / 아열대 고압대 하강 기류 → 사막 / 기후 변화·인간 활동 → 사막화',
+    feat: '온실 기체 증가 → 기후 변화 → 다양한 위험 → 개인·사회·국가의 대책',
+    memo: '원인과 결과의 연결을 따라가며 전체를 복습하기' } },
+];
+SC.forEach((s, i) => { s.i = i; });
+
+/* ---------- review questions (per chapter) ---------- */
+const QUIZ = [
+  [
+    { q: '대기 대순환이 일어나는 근본적인 원인은?', o: ['위도에 따른 태양 복사 에너지의 불균형', '해류의 흐름', '지구의 공전', '대륙과 해양의 분포'], a: 0,
+      e: '저위도는 에너지가 남고 고위도는 부족하다. 이 <b>위도별 에너지 불균형</b>을 해소하는 과정에서 대기 대순환이 일어난다.', demo: { temp: 1, grid: .6, air: 0 } },
+    { q: '해들리 순환이 나타나는 위도 범위는?', o: ['0° ~ 30°', '30° ~ 60°', '60° ~ 90°', '0° ~ 60°'], a: 0,
+      e: '<b>해들리 순환 0~30°</b>, 페렐 순환 30~60°, 극순환 60~90°.', demo: { air: 1, windMorph: 0, cellA1: .15, cellA2: .15, band: [0, 30] } },
+    { q: '세 순환 중 간접 순환에 해당하는 것은?', o: ['해들리 순환', '페렐 순환', '극순환', '워커 순환'], a: 1,
+      e: '<b>페렐 순환</b>은 해들리 순환과 극순환 사이에서 두 순환에 의해 간접적으로 만들어진다.', demo: { air: 1, windMorph: 0, cellA0: .15, cellA2: .15, band: [30, 60] } },
+    { q: '중위도(30°~60°) 지표 부근에서 부는 바람은?', o: ['무역풍', '편서풍', '극동풍', '계절풍'], a: 1,
+      e: '중위도에서는 서쪽에서 동쪽으로 <b>편서풍</b>이 분다.', demo: { air: 1, windMorph: 1, beltA0: .15, beltA2: .15, band: [30, 60] } },
+  ],
+  [
+    { q: '표층 해류가 발생하는 주된 원인은?', o: ['지속적으로 부는 바람', '해수의 밀도 차이', '달의 인력', '해저 지형'], a: 0,
+      e: '표층 해류는 주로 <b>지속적으로 부는 바람</b>의 영향을 받아 발생한다.', demo: { air: .8, windMorph: 1, cur: 1 } },
+    { q: '다음 중 난류는?', o: ['쿠로시오 해류', '캘리포니아 해류', '카나리아 해류', '페루 해류'], a: 0,
+      e: '<b>쿠로시오 해류</b>는 북태평양 서쪽 가장자리를 따라 북쪽으로 흐르는 난류다. 나머지는 모두 한류.', demo: { cur: 1, sel: 'kur' } },
+    { q: '무역풍의 영향으로 동쪽에서 서쪽으로 흐르는 해류는?', o: ['북적도 해류', '북태평양 해류', '서풍 피류', '캘리포니아 해류'], a: 0,
+      e: '<b>북적도 해류</b>는 무역풍, 북태평양 해류와 서풍 피류는 편서풍의 영향을 받는다.', demo: { cur: 1, sel: 'neq' } },
+  ],
+  [
+    { q: '엘니뇨가 발생할 때 무역풍의 변화는?', o: ['평상시보다 약해진다', '평상시보다 강해진다', '방향이 남북으로 바뀐다', '변화가 없다'], a: 0,
+      e: '<b>무역풍이 약해지면</b> 서태평양에 쌓였던 따뜻한 표층수가 동쪽으로 확장된다.', demo: { k: 1 } },
+    { q: '엘니뇨 시기 동태평양(남아메리카 서해안)의 용승은?', o: ['약해진다', '강해진다', '변화가 없다', '해수가 얼어붙는다'], a: 0,
+      e: '따뜻한 표층수가 덮이고 수온약층이 깊어져 <b>용승이 약해진다</b> → 어획량 감소 경향.', demo: { k: 1 } },
+    { q: '엘니뇨의 정의로 옳은 것은?', o: ['적도 부근 태평양 중·동부의 표층 수온이 평년보다 높은 상태가 지속되는 현상', '중위도 대서양의 수온이 높아지는 현상', '극지방 해빙이 늘어나는 현상', '적도 부근 태평양의 해수면 높이가 일정해지는 현상'], a: 0,
+      e: '키워드: <b>적도 부근 태평양 · 중부와 동부 · 표층 수온 상승 · 지속</b>', demo: { k: 1 } },
+    { q: '엘니뇨 시기 서태평양(인도네시아·오스트레일리아 동부 등)에서 나타나는 경향은?', o: ['강수 감소·가뭄 경향', '강수 증가', '용승 강화', '무역풍 강화'], a: 0,
+      e: '상승 기류가 중·동부 태평양으로 이동하고 서태평양에는 하강 기류가 나타나 <b>강수가 줄어드는 경향</b>이 있다.', demo: { k: 1 } },
+  ],
+  [
+    { q: '사하라·아라비아 사막이 위도 30° 부근에 분포하는 주된 이유는?', o: ['아열대 고압대의 하강 기류', '적도 저압대의 상승 기류', '편서풍의 영향', '한류의 영향만으로'], a: 0,
+      e: '<b>아열대 고압대</b>의 하강 기류 때문에 구름이 생기기 어렵고 강수량이 적다.' },
+    { q: '사막화의 원인 중 자연적 원인은?', o: ['가뭄과 강수량 감소', '과잉 경작', '과잉 방목', '무분별한 산림 파괴'], a: 0,
+      e: '자연적 원인: <b>대기 대순환의 변화, 가뭄과 강수량 감소</b> / 인위적 원인: 과잉 경작·과잉 방목·산림 파괴', demo: { causes: { drought: true } } },
+    { q: '사막화의 영향으로 옳은 것은?', o: ['농경지 감소와 식량 부족', '해수면의 급격한 하강', '극지방 빙하 증가', '무역풍 강화'], a: 0,
+      e: '사막화 → <b>농경지·작물 수확량 감소 → 식량 부족</b>, 물 부족, 황사 발생 빈도 증가 가능성', demo: { causes: { farm: true, graze: true } } },
+  ],
+  [
+    { q: '온실 기체 배출이 계속 증가할 때 나타날 수 있는 변화는?', o: ['기상 재해 위험 증가', '모든 지역의 강수량이 똑같이 증가', '생물 다양성 증가', '빙하 면적 증가'], a: 0,
+      e: '<b>기상 재해 위험 증가</b>, 생물 다양성 감소, 물 부족, 식량난 등이 나타날 수 있다. 영향은 지역마다 다르다.', demo: { future: .95, storms: 1 } },
+    { q: '개인이 실천할 수 있는 대책은?', o: ['대중교통 이용', '국가 간 기후 협약 체결', '탄소 포집 시설 건설', '국제 공동 기술 개발'], a: 0,
+      e: '<b>대중교통 이용</b>, 에너지 절약, 친환경 제품 구매는 개인 수준의 대책이다.' },
+    { q: '올바른 연결 순서는?', o: ['대기 대순환 → 지표의 바람 → 표층 해류', '표층 해류 → 대기 대순환 → 바람', '바람 → 태양 에너지 → 해류', '해류 → 바람 → 태양 에너지'], a: 0,
+      e: '<b>대기 대순환 → 지표의 바람 → 표층 해류</b> → 해양과 대기의 상호 작용', demo: { air: .8, windMorph: 1, cur: 1 } },
+  ],
+];
+/* =====================================================================
+   App runtime: state, camera, scene transitions, UI, input, loop
+   ===================================================================== */
+const SUN = V3.norm([.85, 0, .53]);
+const PDEF = {
+  temp: 0, sst: 0, curInf: 1, ensoVis: 0, ensoK: 1, desert: 0, sahel: 0, future: 0, pressure: 0, grid: 0, ambient: .05, clouds: .9,
+  air: 0, windMorph: 0, coriolis: 1, cellA0: 1, cellA1: 1, cellA2: 1, beltA0: 1, beltA1: 1, beltA2: 1,
+  cur: 0, curOther: 1, curSpeed: 1, beams: 0, ring: 0, slab: 0, k: 0, slabParts: 1, terr: 0, terrRain: 1, storms: 0, bandA: 0,
+};
+const PW = { slab: 1.25, terr: 1.25, k: 1.5, windMorph: 1.15, curSpeed: 2, future: 1.6, ensoK: 1.8, coriolis: 1.6, sahel: 1.4 };
+const P = {}; for (const k in PDEF) P[k] = new Spring(PDEF[k], PW[k] || 2.6);
+const C = { az: new Spring(.38, 2.1), el: new Spring(.2, 2.1), dist: new Spring(6.5, 1.5), lx: new Spring(0, 2.1), ly: new Spring(0, 2.1), lz: new Spring(0, 2.1), fov: new Spring(34, 2.1), shift: new Spring(0, 2.1) };
+const APP = {
+  i: 0, time: 0, simTime: 0, t0: 0, last: 0, q: 1, perfT: 0, perfN: 0, perfAcc: 0, lowPower: false,
+  rot: new Spring(0, 1.35), spin: .07, rotVel: .07, tsS: new Spring(1, 3),
+  oAz: new Spring(0, 2.4), oEl: new Spring(0, 2.4), oZoom: new Spring(1, 3),
+  beamLat: 60, hiCell: -1, hiBelt: -1, band: [0, 30], selCur: null, selCurName: null,
+  trade: 1, tradeEff: 1, cmpK: 0, emis: null, measSel: new Set(), impactN: 0, demo: null, observe: false,
+  elS: {}, el: {}, iso: null, timers: [], cam: null, E: null, coast: 'loading',
+};
+for (const k of ['trade', 'warm', 'up', 'rise', 'walker']) { APP.elS[k] = new Spring(1, 3); APP.el[k] = 1; }
+const NOTES = {
+  energy: '춘·추분 기준의 단순 모델 · 대기의 흡수·반사 효과 제외', cells: '순환의 높이는 과장된 교육용 표현', winds: '평균적인 바람 분포를 단순화한 개념 모델',
+  wind2current: '바람과 해류의 관계를 단순화한 개념 모델', currents: '주요 해류 경로를 단순화하여 표시', heat: '수온 분포는 위도와 해류 영향을 단순화한 개념 모델',
+  normal: '태평양 단면 · 깊이와 해수면 높이 과장 · 교육용 개념 모델', onset: '태평양 단면 · 깊이와 해수면 높이 과장 · 교육용 개념 모델',
+  definition: '', impact: '영향 지역은 일반적인 경향이며 엘니뇨마다 다를 수 있음', master: '태평양 단면 · 깊이와 해수면 높이 과장 · 교육용 개념 모델',
+  deserts: '사막 분포는 단순화하여 표시', causes: '지형과 변화 속도는 교육용 개념 모델 (실제 사막화는 수년~수십 년에 걸쳐 진행)', dimpact: '지형과 변화 속도는 교육용 개념 모델',
+  future: '색 변화와 위험 막대는 경향을 나타낸 개념적 표현이며 실제 예측치가 아님', measures: '지구 색 변화는 대책의 효과를 나타낸 개념적 표현', unified: '',
+};
+const later = (ms, fn) => { const id = setTimeout(fn, ms); APP.timers.push(id); return id; };
+const cssW = () => innerWidth, cssH = () => innerHeight;
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+
+/* ---------------- scene transitions ---------------- */
+function applyParams() {
+  const s = SC[APP.i], d = APP.demo || {}, u = APP.userP || {};
+  for (const k in PDEF) P[k].t = (k in d) ? d[k] : (k in u) ? u[k] : (s.p && k in s.p) ? s.p[k] : PDEF[k];
+  if (d.band) { APP.band = d.band; P.bandA.t = 1; }
+}
+function go(i, force) {
+  i = clamp(i, 0, SC.length - 1);
+  if (i === APP.i && !force) return;
+  const prev = SC[APP.i]; if (prev && prev.exit && !force) prev.exit(APP);
+  APP.timers.forEach(clearTimeout); APP.timers = [];
+  const dir = i > APP.i ? 1 : -1; APP.i = i; APP.t0 = APP.time;
+  const s = SC[i];
+  APP.hiCell = -1; APP.hiBelt = -1; APP.selCur = null; APP.selCurName = null; APP.iso = null; APP.demo = null; APP.userP = {};
+  if (APP.memoRun) { APP.memoRun = false; $('#memo-big').classList.remove('on'); $('#titles').style.opacity = ''; $('#panels').style.opacity = ''; }
+  $('#resume').classList.add('off');
+  hideInfo(); closeModals(true);
+  applyParams();
+  // camera
+  const cm = s.cam; C.az.t = cm.az; C.el.t = cm.el; C.dist.t = cm.dist; C.fov.t = cm.fov || 34; C.shift.t = cm.shift || 0;
+  const lk = cm.look || [0, 0, 0]; C.lx.t = lk[0]; C.ly.t = lk[1]; C.lz.t = lk[2];
+  if (!APP.observe) { APP.oAz.t = 0; APP.oEl.t = 0; APP.oZoom.t = 1; }
+  // earth
+  if (s.earth.spin != null) { if (APP.spin == null) APP.rotVel = APP.rot.vel; APP.spin = s.earth.spin; }
+  else setFocusLon(s.earth.lon, cm.az);
+  // slab elements default visible
+  for (const k in APP.elS) APP.elS[k].t = 1;
+  if (s.enter) s.enter(APP, dir);
+  showTitle(s); buildPanel(s); setLabels(s.labels ? s.labels() : []);
+  updateHUD(); save();
+  if (APP.observe) document.getElementById('ui').classList.add('ui-dim');
+}
+function setFocusLon(lon, az = 0) {
+  if (APP.spin != null) { APP.rot.v = APP.rot.v; APP.rot.vel = APP.rotVel; APP.spin = null; }
+  const want = az - lon * D2R; APP.rot.t = APP.rot.v + wrapPi(want - APP.rot.v);
+}
+const next = () => { if (APP.i < SC.length - 1) { flashNav('right'); go(APP.i + 1); } else toast('마지막 장면입니다 · 아래 진행 바에서 원하는 장면을 선택하세요'); };
+const prev = () => { if (APP.i > 0) { flashNav('left'); go(APP.i - 1); } };
+function save() { try { localStorage.setItem('earthflow.v1', JSON.stringify({ i: APP.i, t: Date.now() })); } catch (e) { } }
+function loadSave() { try { const d = JSON.parse(localStorage.getItem('earthflow.v1') || 'null'); return d && d.i > 0 && d.i < SC.length ? d.i : 0; } catch (e) { return 0; } }
+
+/* ---------------- titles ---------------- */
+function showTitle(s, custom) {
+  const host = $('#titles');
+  host.querySelectorAll('.tblock').forEach(b => { b.classList.remove('in'); b.classList.add('out'); setTimeout(() => b.remove(), 1100); });
+  const b = el('div', 'tblock ' + (custom ? 'center final' : ({ center: 'center', top: 'top', def: 'center def' }[s.layout] || '')));
+  const lines = t => t.split('\n').map((x, i) => `<span class="line" style="transition-delay:${120 + i * 90}ms">${x}</span>`).join('');
+  if (custom) b.innerHTML = custom;
+  else if (s.layout === 'def') {
+    b.innerHTML = `<div class="tn line">SCENE ${String(s.i + 1).padStart(2, '0')} · 엘니뇨의 정의</div>
+      <h1 class="defh"><span class="line" style="transition-delay:150ms"><b class="dk">엘니뇨</b>는 <span class="term" data-i="0">적도 부근 태평양</span> <span class="term" data-i="1">중부와 동부</span>의</span>
+      <span class="line" style="transition-delay:260ms"><span class="term" data-i="2">표층 수온</span>이 평년보다 비정상적으로 <span class="term" data-i="2">높은</span> 상태가</span>
+      <span class="line" style="transition-delay:370ms"><span class="term" data-i="3">지속</span>되는 현상이다.</span></h1>
+      <div class="terms">${['적도 부근 태평양', '중부와 동부', '표층 수온 상승', '지속적인 현상'].map((t, i) => `<span class="chip tchip" data-i="${i}"><i>${i + 1}</i>${t}</span>`).join('')}</div>`;
+    for (let i = 0; i < 4; i++) later(1500 + i * 1100, () => b.querySelectorAll(`[data-i="${i}"]`).forEach(x => x.classList.add('on')));
+  } else {
+    b.innerHTML = `<div class="tn line">SCENE ${String(s.i + 1).padStart(2, '0')}</div><h1>${lines(s.title)}</h1>` +
+      (s.sub ? `<p>${lines(s.sub)}</p>` : '') + (s.memo ? `<div class="memo line" style="transition-delay:420ms"><b>핵심 암기</b>${s.memo}</div>` : '');
+  }
+  host.appendChild(b);
+  requestAnimationFrame(() => requestAnimationFrame(() => b.classList.add('in')));
+}
+function showFinal() {
+  showTitle(SC[APP.i], `<div class="tn line" style="letter-spacing:.42em">EARTHFLOW</div><h1><span class="line" style="transition-delay:100ms">Understand the Earth.</span></h1><p><span class="line" style="transition-delay:420ms">지구의 움직임을 이해하다.</span></p>`);
+}
+
+/* ---------------- UI components ---------------- */
+function mkSlider({ min, max, value, step = 1, label, fmt, onInput }) {
+  const w = el('div'); w.innerHTML = `<div class="slabel"><span>${label}</span><b></b></div><div class="slider hit"><div class="track"><div class="fill"></div></div><div class="knob"></div></div>`;
+  const sl = w.querySelector('.slider'), fill = w.querySelector('.fill'), knob = w.querySelector('.knob'), out = w.querySelector('b');
+  let v = value;
+  const draw = () => { const f = (v - min) / (max - min); fill.style.width = f * 100 + '%'; knob.style.left = f * 100 + '%'; out.textContent = fmt ? fmt(v) : v; };
+  const setX = x => { const r = sl.getBoundingClientRect(); let f = clamp((x - r.left) / r.width, 0, 1); v = Math.round((min + f * (max - min)) / step) * step; draw(); onInput(v); };
+  sl.addEventListener('pointerdown', e => { e.stopPropagation(); sl.setPointerCapture(e.pointerId); sl.classList.add('drag'); setX(e.clientX); });
+  sl.addEventListener('pointermove', e => { if (sl.hasPointerCapture(e.pointerId)) setX(e.clientX); });
+  const up = e => { sl.classList.remove('drag'); };
+  sl.addEventListener('pointerup', up); sl.addEventListener('pointercancel', up);
+  draw(); w.set = nv => { v = nv; draw(); }; return w;
+}
+function mkSeg(opts, idx, onChange) {
+  const w = el('div', 'seg hit'); const th = el('div', 'thumb'); w.appendChild(th);
+  const bs = opts.map((o, i) => { const b = el('button', '', o); b.onclick = e => { e.stopPropagation(); sel(i); onChange(i); }; w.appendChild(b); return b; });
+  const sel = i => { bs.forEach((b, j) => b.classList.toggle('on', j === i)); requestAnimationFrame(() => { th.style.left = bs[i].offsetLeft + 'px'; th.style.width = bs[i].offsetWidth + 'px'; }); };
+  sel(idx); w.sel = sel; return w;
+}
+function mkToggle(label, on, onChange, cls = '') {
+  const t = el('div', 'toggle hit ' + cls + (on ? ' on' : ''), `<span>${label}</span><div class="sw"></div>`);
+  t.onclick = e => { e.stopPropagation(); on = !on; t.classList.toggle('on', on); onChange(on); };
+  t.set = v => { on = v; t.classList.toggle('on', on); }; return t;
+}
+function panelBox(pos, title) {
+  const p = el('div', 'panel glass pop off'); Object.assign(p.style, pos);
+  if (title) p.appendChild(el('h3', '', title)); return p;
+}
+const LEFT = { left: '44px', bottom: '118px', width: '350px' };
+const RIGHT = { right: 'calc(14vw + 6px)', bottom: '118px', width: '360px' };
+const RIGHT_TOP = { right: 'calc(14vw + 6px)', top: 'calc(env(safe-area-inset-top) + 92px)', width: '360px' };
+
+function buildPanel(s) {
+  const host = $('#panels');
+  host.querySelectorAll('.panel').forEach(p => { p.classList.add('off'); p.dataset.dead = 1; setTimeout(() => p.remove(), 700); });
+  APP.panel = null;
+  const f = PANELS[s.panel || s.key]; if (!f) return;
+  const p = f(s); if (!p) return;
+  host.appendChild(p); APP.panel = p;
+  requestAnimationFrame(() => requestAnimationFrame(() => p.classList.remove('off')));
+}
+function refreshPanel() { const p = APP.panel; if (p && p.refresh) p.refresh(); }
+
+const PANELS = {
+  energy() {
+    const p = panelBox(LEFT, '위도별 태양 복사 에너지');
+    const rows = el('div');
+    const sl = mkSlider({ min: 0, max: 80, value: APP.beamLat, step: 1, label: '비교할 위도', fmt: v => v + '°', onInput: v => { APP.beamLat = v; upd(); } });
+    p.appendChild(sl); p.appendChild(rows);
+    const upd = () => {
+      const e = Math.cos(APP.beamLat * D2R) * 100;
+      rows.innerHTML = `<div class="row"><span>적도 (0°)</span><span>100</span></div><div class="bar"><div style="width:100%"></div></div>
+        <div class="row" style="margin-top:8px"><span>위도 ${APP.beamLat}°</span><span>${e.toFixed(0)}</span></div><div class="bar"><div style="width:${e}%"></div></div>
+        <div class="note">단위 면적당 받는 에너지 상대값 (적도 = 100, ∝ cos 위도). 같은 굵기의 햇빛이 고위도에서는 더 넓은 면적을 비춘다.</div>`;
+    };
+    upd(); return p;
+  },
+  cells() {
+    const p = panelBox(LEFT, '순환을 터치해 보기');
+    const ch = el('div', 'chips');
+    CELLS.forEach((c, i) => { const b = el('button', 'chip hit', `<span class="dot"></span>${c.name}`); b.onclick = e => { e.stopPropagation(); pickCell(i); }; ch.appendChild(b); });
+    p.appendChild(ch);
+    p.appendChild(el('div', 'note', '<span style="color:#ff9a6a">●</span> 상승하는 공기 &nbsp; <span style="color:#5cbcff">●</span> 하강하는 공기 &nbsp; ○ 수평 이동<br>북반구와 남반구에 같은 구조가 대칭으로 나타난다.'));
+    return p;
+  },
+  winds() {
+    const p = panelBox(LEFT, '시험용 핵심 정리');
+    p.appendChild(el('div', '', WIND_INFO.map((w, i) => `<div class="row hit" data-b="${i}" style="cursor:pointer"><span>${w.name}</span><span>${w.tag}</span></div>`).join('')));
+    p.querySelectorAll('[data-b]').forEach(r => r.onclick = e => { e.stopPropagation(); pickBelt(+r.dataset.b); });
+    const t = mkToggle('전향력 (지구 자전의 효과)', P.coriolis.t > .5, on => { APP.userP.coriolis = P.coriolis.t = on ? 1 : 0; note.innerHTML = on ? '전향력 때문에 북반구에서는 오른쪽, 남반구에서는 왼쪽으로 바람이 휜다.' : '가상 실험: 자전이 없다면 바람은 고압대 → 저압대로 남북 방향으로만 분다.'; });
+    p.appendChild(t);
+    const note = el('div', 'note', '전향력 때문에 북반구에서는 오른쪽, 남반구에서는 왼쪽으로 바람이 휜다.'); p.appendChild(note);
+    return p;
+  },
+  currents() {
+    const p = panelBox(LEFT, '대양 선택');
+    const seg = mkSeg(['북태평양', '북대서양', '남반구'], 1, i => { const f = [[-170, .35], [-45, .38], [-60, -.55]][i]; setFocusLon(f[0], 0); C.el.t = f[1]; });
+    p.appendChild(seg);
+    p.appendChild(el('div', 'note', '<span style="color:#FF784F">━</span> 난류 &nbsp;&nbsp; <span style="color:#39B9F5">━</span> 한류<br>해류 이름이나 흐름을 터치하면 특징이 나타난다. 흐리게 표시된 것은 순환을 잇는 참고 해류.'));
+    return p;
+  },
+  heat() {
+    const p = panelBox(LEFT, '표시 설정');
+    const uset = (k, v) => { APP.userP[k] = v; P[k].t = v; };
+    p.appendChild(mkToggle('해류 표시', P.cur.t > .5, on => uset('cur', on ? 1 : 0)));
+    p.appendChild(mkToggle('해류에 의한 수온 변화', P.curInf.t > .5, on => uset('curInf', on ? 1 : 0), 'warm'));
+    p.appendChild(mkToggle('해수면 온도 분포', P.sst.t > .5, on => uset('sst', on ? 1 : 0)));
+    p.appendChild(el('div', 'note', '<div style="height:8px;border-radius:4px;background:linear-gradient(90deg,#10206b,#1a73eb,#4dccf5,#f5e085,#ff784f,#db2729);margin:4px 0 6px"></div><div style="display:flex;justify-content:space-between"><span>차가움</span><span>따뜻함</span></div>'));
+    return p;
+  },
+  normal() {
+    const p = panelBox(LEFT, '요소별로 보기');
+    const items = [['trade', '무역풍'], ['warm', '따뜻한 표층수 · 수온약층'], ['up', '용승'], ['rise', '상승 · 하강 기류'], ['walker', '워커 순환']];
+    const ch = el('div', 'chips');
+    items.forEach(([k, n]) => { const b = el('button', 'chip hit', n); b.onclick = e => { e.stopPropagation(); APP.iso = APP.iso === k ? null : k; ch.querySelectorAll('.chip').forEach(x => x.classList.remove('on')); if (APP.iso) b.classList.add('on'); }; ch.appendChild(b); });
+    p.appendChild(ch);
+    p.appendChild(el('div', 'note', '서태평양: 따뜻한 해수가 쌓여 해수면이 높고 수온약층이 깊다.<br>동태평양: 용승으로 차가운 해수가 올라와 수온약층이 얕다.'));
+    return p;
+  },
+  onset() {
+    const p = panelBox(LEFT, '무역풍 세기를 조절하세요');
+    p.appendChild(mkSlider({ min: 20, max: 100, value: Math.round(APP.trade * 100), step: 1, label: '무역풍 세기', fmt: v => v + '%', onInput: v => { APP.trade = v / 100; } }));
+    const chain = el('div', 'chain');
+    chain.innerHTML = ['무역풍 약화', '따뜻한 표층수의 동쪽 확장', '동태평양 표층 수온 상승', '용승 약화'].map((t, i) => `<div class="st"><i>${i + 1}</i>${t}</div>`).join('');
+    p.appendChild(chain);
+    const ro = el('div'); p.appendChild(ro);
+    p.tick = () => {
+      const k = P.k.v, th = [.08, .3, .55, .75];
+      chain.querySelectorAll('.st').forEach((s, i) => s.classList.toggle('on', k > th[i]));
+      const dT = PAC.sst(.95, k) - PAC.sst(.95, 0);
+      ro.innerHTML = `<div class="row" style="margin-top:8px"><span>동태평양 표층 수온 (평상시 대비)</span><span>+${dT.toFixed(1)} °C</span></div>
+        <div class="row"><span>동태평양 용승</span><span>${k < .3 ? '활발' : k < .7 ? '약해지는 중' : '약화'}</span></div>
+        <div class="row"><span>상승 기류 위치</span><span>${k < .35 ? '서태평양' : k < .7 ? '중부로 이동 중' : '중·동부 태평양'}</span></div>`;
+    };
+    return p;
+  },
+  impact() {
+    const p = panelBox(LEFT, '비교');
+    p.appendChild(mkSeg(['평상시', '엘니뇨'], APP.cmpK > .5 ? 1 : 0, i => { APP.cmpK = i; }));
+    p.appendChild(el('div', 'note', '열대 태평양의 색은 표층 수온(파랑 = 차가움, 주황 = 따뜻함). 엘니뇨 때는 따뜻한 해수가 중·동부까지 퍼지고, 상승 기류와 비구름의 위치도 동쪽으로 이동한다.<br><br>지역별 영향은 엘니뇨의 강도·시기·계절에 따라 달라지며 항상 같은 방식으로 나타나지는 않는다.'));
+    return p;
+  },
+  master() {
+    const p = panelBox({ ...LEFT, width: '410px', bottom: '112px' }, '');
+    p.appendChild(mkSeg(['NORMAL', 'EL NIÑO'], APP.cmpK > .5 ? 1 : 0, i => { APP.cmpK = i; }));
+    const rows = [['무역풍', '강함', '약함'], ['따뜻한 표층수', '서태평양에 집중', '중·동부로 확장'], ['동태평양 수온', '낮음', '높음'], ['용승', '활발', '약화'],
+      ['수온약층(동쪽)', '얕음', '깊어짐'], ['해수면 높이', '서쪽이 높음', '동서 차이 감소'], ['상승 기류', '서태평양', '중·동부 태평양'], ['서태평양 강수', '많음', '감소 경향']];
+    const t = el('div', 'cmp'); t.style.marginTop = '14px';
+    t.innerHTML = `<div class="hd"></div><div class="hd">NORMAL</div><div class="hd">EL NIÑO</div>` + rows.map(r => `<div class="k">${r[0]}</div><div class="n">${r[1]}</div><div class="e">${r[2]}</div>`).join('');
+    p.appendChild(t);
+    p.tick = () => { const on = P.k.v > .5; t.querySelectorAll('.n').forEach(x => { x.classList.toggle('act', !on); x.classList.toggle('na', on); }); t.querySelectorAll('.e').forEach(x => { x.classList.toggle('act', on); x.classList.toggle('wm', on); x.classList.toggle('na', !on); }); };
+    return p;
+  },
+  deserts() {
+    const p = panelBox(LEFT, '구분하기');
+    p.appendChild(el('div', '', `<div class="row" style="display:block"><b style="color:#D5A468">자연적으로 형성된 사막</b><div class="note" style="margin-top:4px">아열대 고압대의 하강 기류처럼 기후 조건 때문에 오래전부터 건조한 지역</div></div>
+      <div class="row" style="display:block"><b style="color:#FF784F">사막화</b><div class="note" style="margin-top:4px">사막 주변처럼 원래 식생이 있던 땅이 자연적·인위적 원인으로 점차 사막처럼 황폐해지는 현상</div></div>`));
+    return p;
+  },
+  causes() {
+    const p = panelBox({ ...LEFT, bottom: '104px', width: '330px' }, '원인 켜기');
+    const c = DES.causes;
+    const add = (k, label, cls) => p.appendChild(mkToggle(label, c[k], on => { c[k] = on; }, cls));
+    p.appendChild(el('div', 'note', '자연적 원인')).style.margin = '0';
+    add('circ', '대기 대순환의 변화', ''); add('drought', '가뭄 · 강수량 감소', '');
+    p.appendChild(el('div', 'note', '인위적 원인')).style.margin = '6px 0 0';
+    add('farm', '과잉 경작', 'warm'); add('graze', '과잉 방목', 'warm'); add('forest', '무분별한 산림 파괴', 'warm');
+    const ro = el('div'); p.appendChild(ro);
+    const rs = el('button', 'pill hit', '모든 원인 끄기'); rs.style.marginTop = '10px';
+    rs.onclick = e => { e.stopPropagation(); for (const k in c) c[k] = false; buildPanel(SC[APP.i]); };
+    p.appendChild(rs);
+    p.tick = () => {
+      const cov = DES.cover(), w = DES.water.v, soil = DES.sand.v > .5 ? '황폐화 · 모래 유입' : DES.dry > .45 ? '건조 · 침식 진행' : '양호';
+      ro.innerHTML = `<div class="row" style="margin-top:6px"><span>식생 덮개 (개념 지표)</span><span>${Math.round(cov * 100)}%</span></div><div class="bar"><div style="width:${cov * 100}%;background:linear-gradient(90deg,#6b8f3a,#9fd36a)"></div></div>
+        <div class="row"><span>토양 상태</span><span>${soil}</span></div><div class="row"><span>하천 수량</span><span>${w > .75 ? '풍부' : w > .45 ? '감소' : '부족'}</span></div>`;
+    };
+    return p;
+  },
+  dimpact() {
+    const p = panelBox(LEFT, '사막화가 가져오는 변화');
+    const items = ['농경지 감소', '작물 수확량 감소', '식량 부족', '물 부족', '황사 발생 빈도 증가 가능성'];
+    const list = el('div'); p.appendChild(list);
+    p.refresh = () => { list.innerHTML = items.map((t, i) => `<div class="row" style="opacity:${APP.impactN > i ? 1 : .25};transition:opacity .6s"><span>${t}</span><span>${APP.impactN > i ? '●' : '○'}</span></div>`).join(''); };
+    p.refresh();
+    p.appendChild(el('div', 'note', '원인과 결과는 지역의 환경과 사회 조건에 따라 다르게 나타날 수 있다.'));
+    return p;
+  },
+  future() {
+    const p = panelBox(LEFT, '온실 기체 배출 시나리오');
+    const bars = el('div');
+    p.appendChild(mkSlider({ min: 0, max: 100, value: Math.round(APP.emis * 100), step: 1, label: '배출 수준', fmt: v => v < 30 ? '줄이는 경우' : v < 65 ? '현재 수준 유지' : '계속 증가', onInput: v => { APP.emis = v / 100; upd(); } }));
+    p.appendChild(bars);
+    const upd = () => { bars.innerHTML = RISKS.map((r, i) => { const w = 12 + 80 * Math.pow(APP.emis, 1.1) * (.8 + .05 * i); return `<div class="row" style="border:0;padding:6px 0 0"><span>${r.name}</span></div><div class="bar"><div style="width:${w}%"></div></div>`; }).join(''); };
+    upd();
+    p.appendChild(el('div', 'note', '막대는 위험이 커지는 방향을 나타낸 개념적 표현이다. 모든 결과가 모든 지역에서 같은 방식으로 나타나는 것은 아니며, 미래 예측에는 과학적 불확실성이 있다.'));
+    return p;
+  },
+  measures() {
+    const p = panelBox(LEFT, '선택한 대책');
+    const ro = el('div'); p.appendChild(ro);
+    p.refresh = () => {
+      const n = APP.measSel.size;
+      ro.innerHTML = `<div class="row"><span>선택</span><span>${n} / ${MEASURES.length}</span></div><div class="bar"><div style="width:${n / MEASURES.length * 100}%;background:linear-gradient(90deg,#188BFF,#68D5FF)"></div></div>
+        <div class="note">완화: 온실 기체 배출을 줄이는 대책 · 적응: 변화에 대비하는 대책<br>지구 주변의 대책을 터치하면 설명이 나타난다.</div>`;
+    };
+    p.refresh(); return p;
+  },
+  unified() {
+    const p = panelBox({ ...RIGHT_TOP, width: '380px' }, '전체 흐름 복습');
+    const nodes = [['위도별 에너지 불균형', 1], ['대기 대순환', 2], ['지표의 바람', 3], ['표층 해류', 4], ['해양의 열 수송', 6], ['무역풍 약화 → 엘니뇨', 8], ['강수·기후 변화', 10], ['아열대 고압대 → 사막', 12], ['인간 활동·기후 → 사막화', 13], ['온실 기체 → 기후 변화', 15], ['대책', 16]];
+    const box = el('div', 'flow');
+    box.innerHTML = nodes.map(([n, s], i) => `<button class="chip hit fl" data-s="${s}">${n}</button>${i < nodes.length - 1 ? '<span class="ar">→</span>' : ''}`).join('');
+    box.querySelectorAll('[data-s]').forEach(b => b.onclick = e => { e.stopPropagation(); go(+b.dataset.s); });
+    p.appendChild(box);
+    p.appendChild(el('div', 'note', '항목을 터치하면 해당 장면으로 이동한다.'));
+    return p;
+  },
+};
+function revealElements() {
+  const order = ['trade', 'warm', 'up', 'rise', 'walker'];
+  order.forEach(k => APP.elS[k].snap(0));
+  order.forEach((k, i) => later(2300 + i * 950, () => { APP.elS[k].t = 1; }));
+}
+
+/* ---------------- labels anchored in 3D ---------------- */
+const LBL = new Map();
+function setLabels(list) {
+  for (const L of LBL.values()) L.dead = true;
+  for (const d of list) {
+    let L = LBL.get(d.id);
+    if (L && L.d.text === d.text && L.d.cls === d.cls) { L.d = d; L.dead = false; continue; }
+    if (L) L.el.remove();
+    const e = el('div', 'lab ' + (d.cls || ''), `<span class="pin"></span><span class="tx">${d.text}${d.sub ? `<small>${d.sub}</small>` : ''}</span>`);
+    e.style.opacity = 0;
+    if (d.tap) e.addEventListener('click', ev => { ev.stopPropagation(); d.tap(); });
+    $('#labels').appendChild(e); LBL.set(d.id, { d, el: e, a: 0, dead: false });
+  }
+}
+function anchorWorld(d) {
+  const st = APP.st;
+  if (d.w) return { p: d.w(), face: 1 };
+  if (d.f) { const f = typeof d.f === 'function' ? d.f() : d.f; return { p: f, face: 1, need: d.need }; }
+  let lat, lon, alt;
+  if (d.g) [lat, lon, alt] = d.g; else if (d.gf) { [lat, lon, alt] = d.gf; lon = st.faceLon + lon; }
+  const o = sph(lat, lon, 1 + (alt || 0)), p = M4.xf(st.E, o);
+  const n = V3.norm(V3.sub(p, st.ctr)), v = V3.norm(V3.sub(APP.cam.eye, p));
+  const dv = V3.dot(n, v);
+  return { p, face: d.limb ? smooth(-.45, -.2, dv) : smooth(.02, .22, dv) };
+}
+function updateLabels(dt) {
+  const W = cssW(), H = cssH(), away = Math.max(P.slab.v, P.terr.v);
+  for (const [id, L] of LBL) {
+    let tgt = 0, sx = -9999, sy = 0;
+    if (!L.dead) {
+      const a = anchorWorld(L.d);
+      let vis = L.d.vis ? L.d.vis() : 1;
+      if (a.need === 'slab') vis *= smooth(.9, 1, P.slab.v); else if (a.need === 'terr') vis *= smooth(.9, 1, P.terr.v); else if (L.d.g || L.d.gf) vis *= 1 - smooth(.05, .3, away);
+      const c = project(a.p);
+      if (c) { sx = c[0]; sy = c[1]; tgt = vis * a.face; }
+      if (L.d.sel) L.el.classList.toggle('sel', !!L.d.sel());
+    }
+    L.a += (tgt - L.a) * Math.min(1, dt * 7);
+    if (L.dead && L.a < .01) { L.el.remove(); LBL.delete(id); continue; }
+    const left = (L.d.cls || '').split(' ').includes('l');
+    L.el.style.opacity = L.a.toFixed(3);
+    L.el.style.pointerEvents = L.a > .35 && L.d.tap ? 'auto' : 'none';
+    L.el.style.transform = `translate3d(${sx.toFixed(1)}px,${sy.toFixed(1)}px,0) translate(${left ? 'calc(-100% + 4px)' : '-4px'},-50%)`;
+  }
+}
+function project(p) {
+  const m = APP.cam.vp, x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15];
+  if (w < .05) return null; return [(x / w * .5 + .5) * cssW(), (1 - (y / w * .5 + .5)) * cssH(), w];
+}
+/* anchors used by scenes */
+function beamHit(lat) {
+  const S0 = SUN, P0 = [Math.cos(lat * D2R) * S0[0], Math.sin(lat * D2R), Math.cos(lat * D2R) * S0[2]];
+  return V3.add(APP.st.ctr, V3.mul(P0, 1.02 * APP.st.earthScale));
+}
+function measurePos(i) {
+  const a = i / MEASURES.length * TAU + APP.simTime * .09;
+  return [Math.cos(a) * 1.62, 0, Math.sin(a) * 1.62];
+}
+const measureFront = i => smooth(-.4, .5, measurePos(i)[2] / 1.62);
+function slabLabels() {
+  const k = () => P.k.v, X = PAC.X, w = () => walker(P.k.v);
+  return [
+    { id: 'swp', text: '서태평양', sub: '인도네시아 · 오스트레일리아 부근', cls: 'plain l', f: () => [-1.82, .36, .38], need: 'slab' },
+    { id: 'sep', text: '동태평양', sub: '남아메리카 · 페루 연안', cls: 'plain', f: () => [1.84, .62, .38], need: 'slab' },
+    { id: 'stw', text: '무역풍', sub: '동 → 서', cls: 'cold', f: () => [X(.62), .49, .3], need: 'slab', vis: () => APP.el.trade * (.3 + .7 * APP.tradeEff) },
+    { id: 'sww', text: '따뜻한 표층수', cls: 'warm', f: () => [X(lerp(.1, .35, k())), PAC.surf(.2, k()) - .09, .37], need: 'slab', vis: () => APP.el.warm },
+    { id: 'scw', text: '차가운 표층수', cls: 'cold l', f: () => [X(.86), PAC.surf(.86, k()) + .025, .37], need: 'slab', vis: () => APP.el.warm * (1 - k()) },
+    { id: 'sup', text: '용승', sub: '깊은 곳의 찬 해수가 올라옴', cls: 'cold l', f: () => [X(.86), -.2, .38], need: 'slab', vis: () => APP.el.up * (1 - k() * .8) },
+    { id: 'sri', text: '상승 기류', sub: '구름 · 많은 비', cls: 'warm', f: () => [X(w().rA) + .08, .98, .1], need: 'slab', vis: () => APP.el.rise },
+    { id: 'ssi', text: '하강 기류', sub: '맑고 건조', cls: 'cold l', f: () => [X(w().sA) + .02, .74, .2], need: 'slab', vis: () => APP.el.rise * (1 - k() * .4) },
+    { id: 'swk', text: '워커 순환', cls: 'big', f: () => [X((w().rA + w().sA) / 2), 1.0, -.3], need: 'slab', vis: () => APP.el.walker * (1 - k() * .3) },
+    { id: 'sth', text: '수온약층', cls: 'plain', f: () => [X(.5), lerp(PAC.surf(.5, k()), -.6, PAC.thermo(.5, k())) + .015, .37], need: 'slab', vis: () => APP.el.warm },
+    { id: 'ssh', text: '해수면 높음', cls: 'plain', f: () => [X(.03), PAC.surf(.03, k()) + .06, .37], need: 'slab', vis: () => APP.el.warm * (1 - k()) },
+  ];
+}
+function terrLabels() {
+  const at = (x, z, dy = .06) => [x, TER.h(x, z) + dy, z];
+  return [
+    { id: 'tf', text: '산림', cls: '', f: at(-1.0, 1.05, .16), need: 'terr', vis: () => .5 + .5 * DES.forest.v },
+    { id: 'tfa', text: '농경지', cls: '', f: at(.8, .7), need: 'terr' },
+    { id: 'tg', text: '목초지', cls: '', f: at(-.2, -.55), need: 'terr' },
+    { id: 'td', text: '사막 경계', sub: '사하라 쪽', cls: 'gold', f: at(.55, -1.38, .08), need: 'terr' },
+    { id: 'tr', text: '하천', cls: 'cold', f: at(-.3, TER.zr(-.3), .03), need: 'terr' },
+  ];
+}
+
+/* ---------------- picking ---------------- */
+function showInfo({ tags = [], title, body }) {
+  const i = $('#info');
+  i.innerHTML = `<button class="icon-btn x hit" aria-label="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>` +
+    tags.map(t => `<span class="tag ${t.c || ''}">${t.t}</span>`).join('') + `<h2>${title}</h2><p>${body}</p>`;
+  i.querySelector('.x').onclick = e => { e.stopPropagation(); hideInfo(true); };
+  i.classList.remove('off');
+}
+function hideInfo(clear) {
+  $('#info').classList.add('off');
+  if (clear) { APP.hiCell = -1; APP.hiBelt = -1; APP.selCur = null; APP.selCurName = null; applyParams(); }
+}
+function pickCell(i) {
+  if (APP.hiCell === i) { hideInfo(true); return; }
+  APP.hiCell = i; const c = CELLS[i];
+  for (let j = 0; j < 3; j++) P['cellA' + j].t = j === i ? 1 : .14;
+  APP.band = [c.lat0, c.lat1]; P.bandA.t = 1;
+  showInfo({ tags: [{ t: c.kind, c: i === 1 ? 'cold' : 'warm' }, { t: c.range }], title: c.name, body: CELL_INFO[i] });
+}
+function pickBelt(i) {
+  if (APP.hiBelt === i) { hideInfo(true); return; }
+  APP.hiBelt = i; const w = WIND_INFO[i];
+  for (let j = 0; j < 3; j++) P['beltA' + j].t = j === i ? 1 : .14;
+  APP.band = [CELLS[i].lat0, CELLS[i].lat1]; P.bandA.t = 1;
+  showInfo({ tags: [{ t: w.tag }, { t: w.range }], title: w.name, body: w.body });
+}
+function pickCurrent(c) {
+  APP.selCur = c.id; APP.selCurName = c.name;
+  showInfo({ tags: [{ t: c.warm ? '난류' : '한류', c: c.warm ? 'warm' : 'cold' }, ...(c.wind ? [{ t: c.wind + '의 영향' }] : [])], title: c.name, body: c.info });
+}
+function pickMeasure(i) {
+  const m = MEASURES[i];
+  if (APP.measSel.has(m.id)) APP.measSel.delete(m.id); else APP.measSel.add(m.id);
+  refreshPanel();
+  showInfo({ tags: [{ t: m.type, c: 'cold' }, { t: m.lvl }], title: m.name, body: m.body + (APP.measSel.has(m.id) ? '' : '<br><br><span style="opacity:.6">선택 해제됨</span>') });
+}
+function rayGlobe(sx, sy) {
+  const cam = APP.cam, v = cam.view, nx = sx / cssW() * 2 - 1, ny = 1 - sy / cssH() * 2;
+  const xe = (nx - cam.shift) / cam.proj[0], ye = ny / cam.proj[5];
+  const right = [v[0], v[4], v[8]], up = [v[1], v[5], v[9]], back = [v[2], v[6], v[10]];
+  const d = V3.norm(V3.sub(V3.add(V3.mul(right, xe), V3.mul(up, ye)), back));
+  const oc = V3.sub(cam.eye, APP.st.ctr), r = APP.st.earthScale, b = V3.dot(oc, d), c = V3.dot(oc, oc) - r * r, disc = b * b - c;
+  if (disc < 0) return null;
+  const hit = V3.add(cam.eye, V3.mul(d, -b - Math.sqrt(disc)));
+  const q = V3.mul(V3.sub(hit, APP.st.ctr), 1 / r), th = APP.st.rot, cs = Math.cos(-th), sn = Math.sin(-th);
+  const o = [cs * q[0] + sn * q[2], q[1], -sn * q[0] + cs * q[2]];
+  return { lat: Math.asin(clamp(o[1], -1, 1)) * R2D, lon: Math.atan2(o[0], o[2]) * R2D };
+}
+function pickAt(x, y) {
+  const s = SC[APP.i];
+  if (s.key === 'cells' && P.air.v > .5) {
+    let best = 1e9, bi = -1;
+    for (let ci = 0; ci < 3; ci++) for (const hem of [1, -1]) for (const side of [1, -1]) for (let k = 0; k < 16; k++) {
+      const [la, h] = loopLH(CELLS[ci], k / 16), p = project(M4.xf(APP.st.E, sph(la * hem, APP.st.faceLon + side * 90, 1 + h)));
+      if (!p) continue; const d = Math.hypot(p[0] - x, p[1] - y); if (d < best) { best = d; bi = ci; }
+    }
+    if (best < 70) { pickCell(bi); return true; }
+  }
+  if ((s.key === 'winds' || s.key === 'deserts') && P.air.v > .5) {
+    const h = rayGlobe(x, y);
+    if (h) { const a = Math.abs(h.lat); if (s.key === 'winds') { pickBelt(a < 30 ? 0 : a < 60 ? 1 : 2); return true; } }
+  }
+  if (P.cur.v > .5 && ['wind2current', 'currents', 'heat'].includes(s.key)) {
+    let best = 1e9, bc = null;
+    for (const c of GEO.CURRENTS) {
+      if (curAlpha(c) < .2 && !APP.selCur) continue;
+      for (let k = 0; k < c.N; k += 4) {
+        const w = M4.xf(APP.st.E, sph(c.lat[k], c.lon[k], 1.006)), n = V3.norm(V3.sub(w, APP.st.ctr));
+        if (V3.dot(n, V3.norm(V3.sub(APP.cam.eye, w))) < .1) continue;
+        const p = project(w); if (!p) continue; const d = Math.hypot(p[0] - x, p[1] - y); if (d < best) { best = d; bc = c; }
+      }
+    }
+    if (best < 34 && bc) { pickCurrent(bc); return true; }
+  }
+  return false;
+}
+
+/* ---------------- HUD ---------------- */
+function buildProgress() {
+  const pr = $('#progress'); pr.innerHTML = '';
+  CH.forEach((c, ci) => {
+    const g = el('div', 'grp');
+    SC.forEach((s, i) => { if (s.ch !== ci) return; const d = el('div', 'd hit'); d.title = s.name; d.onclick = e => { e.stopPropagation(); go(i); }; d.dataset.i = i; g.appendChild(d); });
+    pr.appendChild(g);
+  });
+  pr.appendChild(el('div', 'ct'));
+}
+function updateHUD() {
+  const s = SC[APP.i], c = CH[s.ch], ch = $('#chapter');
+  if (ch.dataset.ch !== String(s.ch)) {
+    ch.style.opacity = 0;
+    setTimeout(() => { ch.querySelector('.ch-num').textContent = c.n; ch.querySelector('.ch-name').textContent = c.en; ch.querySelector('.ch-ko').textContent = c.ko; ch.style.opacity = 1; ch.dataset.ch = s.ch; }, 380);
+  }
+  document.querySelectorAll('#progress .d').forEach(d => { const i = +d.dataset.i; d.classList.toggle('cur', i === APP.i); d.classList.toggle('done', i < APP.i); });
+  $('#progress .ct').textContent = `${String(APP.i + 1).padStart(2, '0')} / ${SC.length}`;
+  const n = SC[APP.i + 1]; $('#nav-right .nav-next').textContent = n ? n.name : '';
+  $('#nav-left').classList.toggle('hidden', APP.i === 0 || APP.observe);
+  $('#nav-right').classList.toggle('hidden', APP.i === SC.length - 1 || APP.observe);
+  $('#memo-btn').style.display = s.memoSeq ? '' : 'none';
+  $('#review-btn').style.display = s.review != null ? '' : 'none';
+  const note = NOTES[s.key] || '';
+  $('#concept-note').textContent = note + (APP.coast === 'fallback' ? (note ? ' · ' : '') + '오프라인 간이 해안선 사용 중' : '');
+}
+function flashNav(side) { const n = $('#nav-' + side); n.classList.add('flash'); setTimeout(() => n.classList.remove('flash'), 260); }
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2600); }
+function ripple(x, y) { const r = el('div', 'ripple'); r.style.left = x + 'px'; r.style.top = y + 'px'; $('#ripples').appendChild(r); setTimeout(() => r.remove(), 750); }
+
+/* ---------------- concept / review / memo / observe ---------------- */
+function openConcept() {
+  const s = SC[APP.i], c = s.concept, m = $('#concept');
+  m.innerHTML = `<button class="icon-btn x hit"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="eyebrow">핵심 개념 · SCENE ${String(APP.i + 1).padStart(2, '0')}</div><h2>${s.name}</h2>
+    <div class="cgrid"><div class="cbox"><b>개념 정의</b><div>${c.def.replace(/\n/g, '<br>')}</div></div><div class="cbox"><b>발생 원리</b><div>${c.how.replace(/\n/g, '<br>')}</div></div>
+    <div class="cbox" style="grid-column:1/-1"><b>중요한 특징</b><div>${c.feat.replace(/\n/g, '<br>')}</div></div>
+    <div class="cbox memo"><b>★ 시험 암기 포인트</b><div>${c.memo.replace(/\n/g, '<br>')}</div></div></div>
+    <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end"><button class="pill hit" id="c-rev">CHAPTER ${s.ch + 1} 복습하기</button></div>`;
+  m.querySelector('.x').onclick = e => { e.stopPropagation(); closeModals(); };
+  m.querySelector('#c-rev').onclick = e => { e.stopPropagation(); m.classList.add('off'); openReview(s.ch); };
+  m.classList.remove('off'); APP.modal = 'concept';
+}
+const RV = { ch: 0, q: 0, answered: false };
+function openReview(ch) { RV.ch = ch; RV.q = 0; RV.prevCauses = { ...DES.causes }; renderQ(); $('#review').classList.remove('off'); APP.modal = 'review'; }
+function renderQ() {
+  const m = $('#review'), qs = QUIZ[RV.ch];
+  if (RV.q >= qs.length) {
+    m.innerHTML = `<button class="icon-btn x hit"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="eyebrow">CHAPTER ${RV.ch + 1} 복습 완료</div><h2>${CH[RV.ch].ko}</h2>
+      <p style="color:var(--dim);line-height:1.6;margin:0 0 18px">다시 보고 싶은 장면을 선택하세요.</p><div class="chips">${SC.filter(s => s.ch === RV.ch).map(s => `<button class="chip hit" data-s="${s.i}">${String(s.i + 1).padStart(2, '0')} · ${s.name}</button>`).join('')}</div>`;
+    m.querySelectorAll('[data-s]').forEach(b => b.onclick = e => { e.stopPropagation(); go(+b.dataset.s); });
+    m.querySelector('.x').onclick = e => { e.stopPropagation(); closeModals(); };
+    return;
+  }
+  const q = qs[RV.q]; RV.answered = false;
+  m.innerHTML = `<button class="icon-btn x hit"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="eyebrow">CHAPTER ${RV.ch + 1} 복습 · ${RV.q + 1} / ${qs.length}</div><div class="q"><h4>${q.q}</h4><div class="opts">${q.o.map((o, i) => `<button class="opt hit" data-o="${i}">${o}</button>`).join('')}</div><div class="exp-host"></div></div>`;
+  m.querySelector('.x').onclick = e => { e.stopPropagation(); closeModals(); };
+  m.querySelectorAll('.opt').forEach(b => b.onclick = e => {
+    e.stopPropagation(); if (RV.answered) return; RV.answered = true;
+    const o = +b.dataset.o, ok = o === q.a;
+    m.querySelectorAll('.opt').forEach((x, i) => { if (i === q.a) x.classList.add('right'); else if (i === o) x.classList.add('wrong'); });
+    m.querySelector('.exp-host').innerHTML = `<div class="exp">${ok ? '<b>정답</b> · ' : `<b>정답은 “${q.o[q.a]}”</b> · `}${q.e}</div>
+      <div class="foot"><span>${q.demo ? '화면의 애니메이션으로 개념을 다시 확인하세요' : ''}</span><button class="pill primary hit" id="q-next">${RV.q + 1 < qs.length ? '다음 문제' : '복습 마치기'}</button></div>`;
+    m.querySelector('#q-next').onclick = e2 => { e2.stopPropagation(); RV.q++; clearDemo(); renderQ(); };
+    if (q.demo) runDemo(q.demo);
+  });
+}
+function runDemo(d) {
+  const o = { ...d }; delete o.sel; delete o.causes;
+  APP.demo = o; applyParams();
+  if (d.sel) { const c = GEO.CURRENTS.find(x => x.id === d.sel); APP.selCur = c.id; APP.selCurName = c.name; }
+  if (d.causes) Object.assign(DES.causes, d.causes);
+}
+function clearDemo() { APP.demo = null; APP.selCur = null; APP.selCurName = null; if (RV.prevCauses) Object.assign(DES.causes, RV.prevCauses); applyParams(); }
+function closeModals(silent) {
+  let any = false;
+  for (const id of ['concept', 'review']) { const m = $('#' + id); if (!m.classList.contains('off')) { m.classList.add('off'); any = true; } }
+  if (APP.demo) clearDemo();
+  APP.modal = null; return any;
+}
+function runMemo() {
+  const s = SC[APP.i]; if (!s.memoSeq || APP.memoRun) return;
+  APP.memoRun = true; const box = $('#memo-big');
+  const steps = s.memoSeq === 'cells'
+    ? CELLS.map((c, i) => ({ n: c.name, v: c.range.replace('위도 ', ''), d: { cellA0: i === 0 ? 1 : .1, cellA1: i === 1 ? 1 : .1, cellA2: i === 2 ? 1 : .1, band: [c.lat0, c.lat1] } }))
+    : WIND_INFO.map((w, i) => ({ n: w.name, v: w.range.replace('위도 ', ''), d: { beltA0: i === 0 ? 1 : .1, beltA1: i === 1 ? 1 : .1, beltA2: i === 2 ? 1 : .1, band: [CELLS[i].lat0, CELLS[i].lat1] } }));
+  hideInfo(); $('#titles').style.opacity = .15; $('#panels').style.opacity = .15;
+  steps.forEach((st, i) => later(i * 2100, () => { APP.demo = st.d; applyParams(); box.querySelector('.n').textContent = st.n; box.querySelector('.v').textContent = st.v; box.classList.remove('on'); void box.offsetWidth; box.classList.add('on'); }));
+  later(steps.length * 2100, () => { box.classList.remove('on'); APP.demo = null; applyParams(); APP.memoRun = false; $('#titles').style.opacity = ''; $('#panels').style.opacity = ''; });
+  APP.timers.push(later(steps.length * 2100 + 10, () => { APP.memoRun = false; }));
+}
+function toggleObserve() {
+  APP.observe = !APP.observe; APP.tsS.t = APP.observe ? 0 : 1;
+  $('#ui').classList.toggle('ui-dim', APP.observe); $('#observe-btn').classList.toggle('on', APP.observe);
+  $('#observe-hint').classList.toggle('off', !APP.observe);
+  if (!APP.observe) { APP.oAz.t = 0; APP.oEl.t = 0; APP.oZoom.t = 1; }
+  updateHUD();
+}
+
+/* ---------------- input ---------------- */
+const PTR = new Map(); let G = null;
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  PTR.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (PTR.size === 1) { G = { type: 'pending', x0: e.clientX, y0: e.clientY, t0: performance.now(), lx: e.clientX, ly: e.clientY, lt: performance.now(), vx: 0, vy: 0 }; }
+  else if (PTR.size === 2) { const [a, b] = [...PTR.values()]; G = { type: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), z0: APP.oZoom.v }; }
+});
+canvas.addEventListener('pointermove', e => {
+  if (!PTR.has(e.pointerId)) return; PTR.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!G) return;
+  if (G.type === 'pinch' && PTR.size === 2) { const [a, b] = [...PTR.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); const z = clamp(G.z0 * G.d0 / Math.max(20, d), .55, 1.8); APP.oZoom.v = APP.oZoom.t = z; return; }
+  if (G.type === 'pending' && Math.hypot(e.clientX - G.x0, e.clientY - G.y0) > 9) G.type = 'drag';
+  if (G.type === 'drag') {
+    const now = performance.now(), dx = e.clientX - G.lx, dy = e.clientY - G.ly, dtm = Math.max(1, now - G.lt);
+    const k = .0042 / Math.max(.6, APP.oZoom.v);
+    APP.oAz.v -= dx * k; APP.oAz.t = APP.oAz.v; APP.oAz.vel = 0;
+    APP.oEl.v = clamp(APP.oEl.v + dy * k * .8, -1.1 - C.el.v, 1.15 - C.el.v); APP.oEl.t = APP.oEl.v; APP.oEl.vel = 0;
+    G.vx = lerp(G.vx, -dx * k / dtm * 1000, .5); G.vy = lerp(G.vy, dy * k * .8 / dtm * 1000, .5);
+    G.lx = e.clientX; G.ly = e.clientY; G.lt = now;
+  }
+});
+const endPtr = e => {
+  if (!PTR.has(e.pointerId)) return; PTR.delete(e.pointerId);
+  if (G && G.type === 'pending' && PTR.size === 0 && performance.now() - G.t0 < 500) onTap(e.clientX, e.clientY);
+  if (G && G.type === 'drag' && PTR.size === 0) { APP.oAz.t = APP.oAz.v + G.vx * .38; APP.oEl.t = clamp(APP.oEl.v + G.vy * .3, -1.1 - C.el.v, 1.15 - C.el.v); }
+  if (PTR.size === 0) G = null;
+};
+canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('wheel', e => { e.preventDefault(); APP.oZoom.t = clamp(APP.oZoom.t * Math.exp(e.deltaY * .0012), .55, 1.8); }, { passive: false });
+function onTap(x, y) {
+  ripple(x, y);
+  if (!$('#resume').classList.contains('off')) { $('#resume').classList.add('off'); return; }
+  if (APP.modal) { closeModals(); return; }
+  if (pickAt(x, y)) return;
+  const W = cssW();
+  if (!APP.observe && x > W * .82) { next(); return; }
+  if (!APP.observe && x < W * .12) { prev(); return; }
+  if (!$('#info').classList.contains('off')) hideInfo(true);
+}
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); next(); }
+  else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+  else if (e.key === 'Escape') { closeModals(); hideInfo(true); }
+});
+$('#concept-btn').onclick = e => { e.stopPropagation(); APP.modal === 'concept' ? closeModals() : (closeModals(), openConcept()); };
+$('#review-btn').onclick = e => { e.stopPropagation(); closeModals(); const s = SC[APP.i]; openReview(s.review != null ? s.review : s.ch); };
+$('#memo-btn').onclick = e => { e.stopPropagation(); runMemo(); };
+$('#observe-btn').onclick = e => { e.stopPropagation(); toggleObserve(); };
+$('#btn-full').onclick = e => {
+  e.stopPropagation();
+  try { if (document.fullscreenElement) document.exitFullscreen(); else { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => toast('이 화면에서는 전체 화면을 사용할 수 없어요')); } } catch (er) { toast('이 화면에서는 전체 화면을 사용할 수 없어요'); }
+};
+
+/* ---------------- frame ---------------- */
+let W = 0, H = 0;
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2) * APP.q;
+  const w = Math.round(cssW() * dpr), h = Math.round(cssH() * dpr);
+  if (w === W && h === H) return; W = w; H = h; canvas.width = w; canvas.height = h; resizeTargets(w, h); APP.dpr = dpr;
+}
+addEventListener('resize', () => { resize(); const s = SC[APP.i]; });
+function adaptQuality(dt) {
+  APP.perfAcc += dt; APP.perfN++;
+  if (APP.perfAcc > 1.2) {
+    const avg = APP.perfAcc / APP.perfN; APP.perfAcc = 0; APP.perfN = 0;
+    let q = APP.q;
+    if (avg > 1 / 42 && q > .5) q = Math.max(.5, q - .1); else if (avg < 1 / 70 && q < 1) q = Math.min(1, q + .05);
+    if (q !== APP.q) { APP.q = q; resize(); }
+    APP.lowPower = APP.q < .66;
+  }
+}
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(window.EF_MAXDT || .05, Math.max(.001, (now - (APP.last || now)) / 1000 || .016)); APP.last = now;
+  if (!window.EF_FIXQ) adaptQuality(dt);
+  APP.time += dt;
+  const ts = clamp(APP.tsS.step(dt), 0, 1); APP.simTime += dt * ts;
+  const s = SC[APP.i], t = APP.time - APP.t0;
+  if (s.update) s.update(APP, t);
+  if (APP.demo) for (const k in APP.demo) if (P[k]) P[k].t = APP.demo[k];
+  // gate morphs until the planet has turned to the right place
+  const rotErr = APP.spin == null ? Math.abs(APP.rot.t - APP.rot.v) : 9;
+  P.slab.t = s.slab && rotErr < .5 ? 1 : 0; P.terr.t = s.terr && rotErr < .5 ? 1 : 0;
+  for (const k in P) P[k].step(dt);
+  for (const k in C) C[k].step(dt);
+  APP.oAz.step(dt); APP.oEl.step(dt); APP.oZoom.step(dt);
+  for (const k in APP.elS) { APP.elS[k].step(dt); APP.el[k] = APP.elS[k].v * (APP.iso && APP.iso !== k ? .15 : 1); }
+  APP.tradeEff = lerp(1, .22, P.k.v);
+  // planet rotation
+  if (APP.spin != null) { APP.rotVel = lerp(APP.rotVel, APP.spin * ts, Math.min(1, dt * 1.5)); APP.rot.v += APP.rotVel * dt; APP.rot.t = APP.rot.v; APP.rot.vel = APP.rotVel; }
+  else APP.rot.step(dt);
+  const away = Math.max(P.slab.v, P.terr.v), esc = 1 - .5 * away, ectr = [1.9 * away, 1.25 * away, -5.2 * away];
+  const E = M4.trsY(ectr[0], ectr[1], ectr[2], esc, APP.rot.v);
+  // camera
+  const az = C.az.v + APP.oAz.v, elv = clamp(C.el.v + APP.oEl.v, -1.25, 1.3), dist = C.dist.v * APP.oZoom.v;
+  const look = [C.lx.v, C.ly.v, C.lz.v];
+  const eye = V3.add(look, [Math.cos(elv) * Math.sin(az) * dist, Math.sin(elv) * dist, Math.cos(elv) * Math.cos(az) * dist]);
+  const asp = cssW() / cssH(), shift = C.shift.v * clamp((asp - 1) / .5, 0, 1);
+  const view = M4.lookAt(eye, look, [0, 1, 0]), proj = M4.persp(C.fov.v * D2R, asp, .03, 300, shift);
+  const vp = M4.mul(proj, view);
+  const prevEye = APP.cam ? APP.cam.eye : eye;
+  APP.cam = { view, proj, vp, eye, f: proj[5], dpr: APP.dpr, shift };
+  const faceLon = az * R2D - APP.rot.v * R2D;
+  const st = APP.st = { E, ctr: ectr, earthScale: esc, rot: APP.rot.v, ts, time: APP.simTime, faceLon, sun: SUN, lowPower: APP.lowPower };
+  // simulate
+  if (P.air.v > .01) updateAir(dt, st);
+  if (P.cur.v > .01) updateCurrents(dt, st);
+  if (P.slab.v > .3) updateSlab(dt, st);
+  updateDesert(dt, st);
+  // emit particles
+  R.sn = 0;
+  emitSun(st); emitBeams(st); emitRing(st); emitAir(st); emitCurrents(st); emitStorms(st); emitEnsoGlobe(st); emitSlab(st); emitDesert(st);
+  // render
+  R.scene.bind();
+  gl.clearColor(.006, .009, .02, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.disable(gl.CULL_FACE);
+  gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+  R.star.use().f('uProj', proj).f('uView', view).f('uDpr', APP.dpr).f('uTime', APP.time);
+  gl.bindVertexArray(R.stars); gl.drawArrays(gl.POINTS, 0, R.starN);
+  gl.disable(gl.BLEND); gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
+  const eu = (p) => p.use().f('uProj', proj).f('uView', view).f('uModel', E).f('uSun', SUN).f('uCam', eye);
+  eu(R.earth).f('uR', 1).tex('uLand', 0, R.landTex).tex('uDetail', 1, R.detailTex).tex('uCur', 2, R.curTex)
+    .f('uTime', APP.simTime).f('uAmbient', P.ambient.v).f('uTemp', P.temp.v).f('uSST', P.sst.v).f('uCurInf', P.curInf.v)
+    .f('uEnsoVis', P.ensoVis.v).f('uEnsoK', P.ensoK.v).f('uDesert', P.desert.v).f('uFuture', P.future.v).f('uPressure', P.pressure.v)
+    .f('uGrid', P.grid.v).f('uDim', lerp(1, .7, away)).f('uSahel', P.sahel.v).f('uBand', [APP.band[0], APP.band[1], P.bandA.v, 0]);
+  gl.bindVertexArray(R.sphere.vao); gl.drawElements(gl.TRIANGLES, R.sphere.count, gl.UNSIGNED_INT, 0);
+  if (P.slab.v > .002) {
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    R.slab.use().f('uVP', vp).f('uEarth', E).f('uMorph', P.slab.v).f('uK', P.k.v).f('uTime', APP.simTime).f('uAlpha', smooth(0, .12, P.slab.v))
+      .f('uSun', SUN).f('uCam', eye).f('uLine', APP.el.warm);
+    gl.bindVertexArray(R.slabVao); gl.drawElements(gl.TRIANGLES, R.slabN, gl.UNSIGNED_INT, 0);
+    gl.disable(gl.BLEND);
+  }
+  if (P.terr.v > .002) {
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    R.terr.use().f('uVP', vp).f('uEarth', E).f('uMorph', P.terr.v).f('uSun', V3.norm([.5, .75, .45])).f('uCam', eye)
+      .f('uGrass', DES.grass.v).f('uFarm', DES.farm.v).f('uGraze', DES.graze.v).f('uForest', DES.forest.v).f('uWater', DES.water.v)
+      .f('uSand', DES.sand.v).f('uDry', DES.dry).f('uAlpha', smooth(0, .12, P.terr.v)).f('uTime', APP.simTime);
+    gl.bindVertexArray(R.terrVao); gl.drawElements(gl.TRIANGLES, R.terrN, gl.UNSIGNED_INT, 0);
+    gl.disable(gl.BLEND);
+  }
+  const pu = { sun: V3.norm([.5, .75, .45]), forest: DES.forest.v, grass: DES.grass.v, live: DES.live.v, time: APP.simTime, dry: DES.dry, slab: smooth(.85, 1, P.slab.v), vis: smooth(.86, 1, P.terr.v) };
+  if (pu.vis > .001) { drawProps(R.pTrees, APP.cam, pu); drawProps(R.pHerd, APP.cam, pu); drawProps(R.pHouse, APP.cam, pu); drawProps(R.pRoof, APP.cam, pu); }
+  if (pu.slab > .001) drawProps(R.pLand, APP.cam, { ...pu, vis: 0 });
+  // clouds + atmosphere
+  gl.depthMask(false); gl.enable(gl.BLEND);
+  if (P.clouds.v > .01) { gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); eu(R.cloud).f('uR', 1.009).tex('uDetail', 0, R.detailTex).f('uTime', APP.simTime).f('uA', P.clouds.v * (1 - away * .5)).f('uStorm', P.storms.v); gl.bindVertexArray(R.sphere.vao); gl.drawElements(gl.TRIANGLES, R.sphere.count, gl.UNSIGNED_INT, 0); }
+  gl.blendFunc(gl.ONE, gl.ONE); eu(R.atmo).f('uR', 1.05).f('uCenter', ectr).f('uA', 1).f('uWarm', P.future.v).f('uRim', .3);
+  gl.bindVertexArray(R.sphere.vao); gl.drawElements(gl.TRIANGLES, R.sphere.count, gl.UNSIGNED_INT, 0);
+  gl.depthMask(true); gl.disable(gl.BLEND);
+  drawStreaks(APP.cam, W, H);
+  // motion blur from camera / morph speed
+  const eyeSpd = V3.len(V3.sub(eye, prevEye)) / dt / Math.max(1, dist);
+  const blur = clamp(eyeSpd * .2 + Math.abs(P.slab.vel) * .1 + Math.abs(P.terr.vel) * .1 + Math.abs(APP.rot.vel - (APP.spin || 0)) * .05, 0, .5) * (APP.lowPower ? .6 : 1);
+  postProcess(W, H, blur, .9);
+  updateLabels(dt);
+  if (APP.panel && APP.panel.tick) APP.panel.tick();
+}
+function emitEnsoGlobe(st) {
+  const v = P.ensoVis.v * (1 - smooth(.05, .3, Math.max(P.slab.v, P.terr.v))); if (v < .02) return;
+  const k = P.ensoK.v, lon0 = lerp(135, 205, k);
+  for (let i = 0; i < 40; i++) {
+    const h = hash2(i, 7), h2 = hash2(i, 13), h3 = hash2(i, 29);
+    const la = (h - .5) * 13, lo = lon0 + (h2 - .5) * 32, r = 1.02 + h3 * .015;
+    const p = M4.xf(st.E, sph(la, lo, r)); Sv(p, p, [.95, .97, 1], v * .09, .05 + h3 * .05);
+    const ph = (st.time * .8 + h3) % 1, q1 = M4.xf(st.E, sph(la, lo, 1.02 - ph * .02)), q2 = M4.xf(st.E, sph(la, lo, 1.026 - ph * .02));
+    Sv(q1, q2, COL.rain, v * .5, .0035);
+  }
+}
+
+/* ---------------- boot ---------------- */
+function boot() {
+  try { initRenderer(); } catch (e) { fatal('그래픽을 초기화하지 못했습니다.<br><small>' + e.message + '</small>'); return; }
+  R.landTex = texFromData(2048, 1024, buildLandTexture(GEO.FALLBACK.map(r => [r])));
+  R.curTex = texFromData(1024, 512, buildCurrentTexture());
+  buildTerrain(); initAir(); initCurrents(); initSlab(); initDesert();
+  resize(); buildProgress();
+  APP.i = 0; go(0, true);
+  C.dist.v = 6.5; C.dist.t = 3.9;
+  requestAnimationFrame(frame);
+  const saved = loadSave();
+  if (saved > 0) {
+    const r = $('#resume');
+    r.innerHTML = `<div class="eyebrow" style="font-size:12px;letter-spacing:.26em;color:var(--cyan);font-weight:600">이어서 학습하기</div><h3>SCENE ${String(saved + 1).padStart(2, '0')} · ${SC[saved].name}</h3><p>마지막으로 학습한 위치에서 계속할 수 있어요.</p><div class="btns"><button class="pill hit" id="r-new">처음부터</button><button class="pill primary hit" id="r-go">이어서 보기</button></div>`;
+    r.classList.remove('off');
+    $('#r-go').onclick = e => { e.stopPropagation(); r.classList.add('off'); go(saved); };
+    $('#r-new').onclick = e => { e.stopPropagation(); r.classList.add('off'); };
+  }
+  loadLiveCoastlines().then(polys => {
+    if (polys) { try { updateTex(R.landTex, 2048, 1024, buildLandTexture(polys)); APP.coast = 'live'; } catch (e) { APP.coast = 'fallback'; } }
+    else APP.coast = 'fallback';
+    updateHUD();
+  });
+}
+if (gl) boot();
+
+</script>
+</body>
+</html>
